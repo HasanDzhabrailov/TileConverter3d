@@ -7,7 +7,7 @@ name = "terrain-converter"
 version = "0.1.0"
 description = "Offline HGT/SRTM to MapLibre Terrain-RGB converter"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["numpy>=2"]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]

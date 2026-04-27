@@ -9,6 +9,8 @@ import struct
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
+
 HGT_NAME_RE = re.compile(r"^(?P<lat_ns>[NS])(?P<lat>\d{2})(?P<lon_ew>[EW])(?P<lon>\d{3})\.hgt$", re.IGNORECASE)
 VOID_VALUE = -32768
 SUPPORTED_GRID_SIZES = {
@@ -31,6 +33,7 @@ class HGTTile:
     west: int
     size: int
     samples: mmap.mmap
+    grid: np.ndarray
     void_value: int = VOID_VALUE
 
     @property
@@ -106,6 +109,59 @@ class HGTTile:
             return weighted / total_weight
         return fallback
 
+    def sample_bilinear_array(self, lon: np.ndarray, lat: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        lon = np.minimum(np.maximum(lon, self.west), np.nextafter(self.east, self.west))
+        lat = np.minimum(np.maximum(lat, self.south), np.nextafter(self.north, self.south))
+
+        col_f = (lon - self.west) * self.resolution
+        row_f = (self.north - lat) * self.resolution
+
+        col0 = np.floor(col_f).astype(np.intp, copy=False)
+        row0 = np.floor(row_f).astype(np.intp, copy=False)
+        col1 = np.minimum(col0 + 1, self.size - 1)
+        row1 = np.minimum(row0 + 1, self.size - 1)
+
+        fx = col_f - col0
+        fy = row_f - row0
+
+        weight00 = (1.0 - fx) * (1.0 - fy)
+        weight10 = fx * (1.0 - fy)
+        weight01 = (1.0 - fx) * fy
+        weight11 = fx * fy
+
+        grid = self.grid
+        value00 = grid[row0, col0].astype(np.float64, copy=False)
+        value10 = grid[row0, col1].astype(np.float64, copy=False)
+        value01 = grid[row1, col0].astype(np.float64, copy=False)
+        value11 = grid[row1, col1].astype(np.float64, copy=False)
+
+        valid00 = value00 != self.void_value
+        valid10 = value10 != self.void_value
+        valid01 = value01 != self.void_value
+        valid11 = value11 != self.void_value
+
+        weighted = np.zeros(lon.shape, dtype=np.float64)
+        total_weight = np.zeros(lon.shape, dtype=np.float64)
+        weighted += np.where(valid00, value00 * weight00, 0.0)
+        weighted += np.where(valid10, value10 * weight10, 0.0)
+        weighted += np.where(valid01, value01 * weight01, 0.0)
+        weighted += np.where(valid11, value11 * weight11, 0.0)
+        total_weight += np.where(valid00, weight00, 0.0)
+        total_weight += np.where(valid10, weight10, 0.0)
+        total_weight += np.where(valid01, weight01, 0.0)
+        total_weight += np.where(valid11, weight11, 0.0)
+
+        fallback = np.where(
+            valid00,
+            value00,
+            np.where(valid10, value10, np.where(valid01, value01, np.where(valid11, value11, np.nan))),
+        )
+        values = np.full(lon.shape, np.nan, dtype=np.float64)
+        np.divide(weighted, total_weight, out=values, where=total_weight > 0.0)
+        values = np.where(total_weight > 0.0, values, fallback)
+        valid = ~np.isnan(values)
+        return values, valid
+
 
 class HGTCollection:
     def __init__(self, tiles: list[HGTTile]):
@@ -132,6 +188,46 @@ class HGTCollection:
         if tile is None:
             return None
         return tile.sample_bilinear(lon, lat)
+
+    def sample_grid(self, lon: np.ndarray, lat: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        if lon.shape != lat.shape:
+            raise ValueError("lon and lat grids must have the same shape")
+
+        west, south, east, north = self.bounds
+        values = np.full(lon.shape, np.nan, dtype=np.float64)
+        valid = np.zeros(lon.shape, dtype=bool)
+        in_bounds = (west <= lon) & (lon < east) & (south <= lat) & (lat < north)
+        if not np.any(in_bounds):
+            return values, valid
+
+        min_lon = float(np.min(lon[in_bounds]))
+        max_lon = float(np.max(lon[in_bounds]))
+        min_lat = float(np.min(lat[in_bounds]))
+        max_lat = float(np.max(lat[in_bounds]))
+        west_start = math.floor(min_lon)
+        west_end = math.floor(math.nextafter(max_lon, -math.inf))
+        south_start = math.floor(min_lat)
+        south_end = math.floor(math.nextafter(max_lat, -math.inf))
+
+        for tile_south in range(south_start, south_end + 1):
+            for tile_west in range(west_start, west_end + 1):
+                tile = self._tile_map.get((tile_south, tile_west))
+                if tile is None:
+                    continue
+                tile_mask = in_bounds & (tile.west <= lon) & (lon < tile.east) & (tile.south <= lat) & (lat < tile.north)
+                if not np.any(tile_mask):
+                    continue
+                tile_values, tile_valid = tile.sample_bilinear_array(lon[tile_mask], lat[tile_mask])
+                if not np.any(tile_valid):
+                    continue
+                masked_values = values[tile_mask]
+                masked_values[tile_valid] = tile_values[tile_valid]
+                values[tile_mask] = masked_values
+                masked_valid = valid[tile_mask]
+                masked_valid[tile_valid] = True
+                valid[tile_mask] = masked_valid
+
+        return values, valid
 
 
 def parse_hgt_coordinate(path: str | Path) -> HGTCoordinate:
@@ -161,12 +257,14 @@ def read_hgt(path: str | Path) -> HGTTile:
     size = infer_hgt_size(path)
     with path.open("rb") as file_obj:
         samples = mmap.mmap(file_obj.fileno(), length=0, access=mmap.ACCESS_READ)
+    grid = np.frombuffer(samples, dtype=">i2").reshape((size, size))
     return HGTTile(
         path=path,
         south=coordinate.lat,
         west=coordinate.lon,
         size=size,
         samples=samples,
+        grid=grid,
     )
 
 

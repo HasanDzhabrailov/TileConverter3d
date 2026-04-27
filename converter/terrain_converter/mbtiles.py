@@ -24,6 +24,8 @@ def xyz_to_tms_row(zoom: int, y: int) -> int:
 
 
 class MBTilesWriter:
+    _BATCH_SIZE = 256
+
     def __init__(self, path: str | Path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -31,7 +33,9 @@ class MBTilesWriter:
         self.connection.execute("PRAGMA journal_mode=MEMORY")
         self.connection.execute("PRAGMA synchronous=NORMAL")
         self.connection.execute("PRAGMA temp_store=MEMORY")
+        self.connection.execute("PRAGMA cache_size=-65536")
         self.connection.executescript(MBTILES_SCHEMA)
+        self._tile_batch: list[tuple[int, int, int, bytes]] = []
 
     def write_metadata(self, metadata: dict[str, str]) -> None:
         rows = sorted(metadata.items())
@@ -42,12 +46,21 @@ class MBTilesWriter:
         self.connection.commit()
 
     def write_tile(self, zoom: int, x: int, y: int, tile_data: bytes) -> None:
-        self.connection.execute(
+        self._tile_batch.append((zoom, x, xyz_to_tms_row(zoom, y), tile_data))
+        if len(self._tile_batch) >= self._BATCH_SIZE:
+            self._flush_tiles()
+
+    def _flush_tiles(self) -> None:
+        if not self._tile_batch:
+            return
+        self.connection.executemany(
             "INSERT OR REPLACE INTO tiles(zoom_level, tile_column, tile_row, tile_data) VALUES(?, ?, ?, ?)",
-            (zoom, x, xyz_to_tms_row(zoom, y), tile_data),
+            self._tile_batch,
         )
+        self._tile_batch.clear()
 
     def close(self) -> None:
+        self._flush_tiles()
         self.connection.commit()
         self.connection.close()
 

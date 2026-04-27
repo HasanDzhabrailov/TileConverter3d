@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from pathlib import Path
 
 from .bbox import union_bounds
@@ -39,7 +39,25 @@ def _iter_rendered_tiles(collection, input_paths: list[str], tiles, workers: int
         return
 
     with ProcessPoolExecutor(max_workers=workers, initializer=_init_tile_worker, initargs=([str(path) for path in input_paths],)) as executor:
-        yield from executor.map(_render_tile, tiles, chunksize=8)
+        tiles_iter = iter(tiles)
+        pending = set()
+        max_pending = workers * 4
+
+        while len(pending) < max_pending:
+            try:
+                pending.add(executor.submit(_render_tile, next(tiles_iter)))
+            except StopIteration:
+                break
+
+        while pending:
+            done, pending = wait(pending, return_when=FIRST_COMPLETED)
+            for future in done:
+                yield future.result()
+            while len(pending) < max_pending:
+                try:
+                    pending.add(executor.submit(_render_tile, next(tiles_iter)))
+                except StopIteration:
+                    break
 
 
 def build_parser() -> argparse.ArgumentParser:

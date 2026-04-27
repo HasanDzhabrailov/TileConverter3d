@@ -6,5 +6,7 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 *.png
+style.json
+tiles.json
 *.mbtiles
 *.mbtiles-journal

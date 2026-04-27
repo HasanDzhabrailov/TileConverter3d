@@ -3,6 +3,7 @@ from __future__ import annotations
 from array import array
 import math
 
+import numpy as np
 import pytest
 
 from terrain_converter.hgt import infer_hgt_size, parse_hgt_coordinate, read_hgt
@@ -54,3 +55,28 @@ def test_validate_inputs_discovers_uppercase_hgt(tmp_path):
     discovered = validate_inputs([tmp_path])
 
     assert discovered == [hgt_path]
+
+
+def test_sample_grid_matches_scalar_sampling(tmp_path):
+    hgt_path = tmp_path / "N00E000.hgt"
+    write_hgt(
+        hgt_path,
+        updates=[
+            (0, 0, 1000),
+            (0, 1200, 2000),
+            (1200, 0, -100),
+            (1200, 1200, 300),
+        ],
+    )
+
+    tile = read_hgt(hgt_path)
+    lon = np.array([[0.0, 0.999999999999], [0.0, 0.999999999999]], dtype=np.float64)
+    lat = np.array([[math.nextafter(1.0, 0.0), 0.999999999999], [0.0, 0.0]], dtype=np.float64)
+
+    values, valid = tile.sample_bilinear_array(lon, lat)
+
+    assert valid.tolist() == [[True, True], [True, True]]
+    assert values[0, 0] == pytest.approx(tile.sample_bilinear(float(lon[0, 0]), float(lat[0, 0])))
+    assert values[0, 1] == pytest.approx(tile.sample_bilinear(float(lon[0, 1]), float(lat[0, 1])))
+    assert values[1, 0] == pytest.approx(tile.sample_bilinear(float(lon[1, 0]), float(lat[1, 0])))
+    assert values[1, 1] == pytest.approx(tile.sample_bilinear(float(lon[1, 1]), float(lat[1, 1])))
