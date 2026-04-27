@@ -1,0 +1,10 @@
+data/
+*.hgt
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+*.png
+*.mbtiles
+*.mbtiles-journal

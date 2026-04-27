@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import math
+import mmap
 import re
-import sys
-from array import array
+import struct
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,6 +15,7 @@ SUPPORTED_GRID_SIZES = {
     1201 * 1201 * 2: 1201,
     3601 * 3601 * 2: 3601,
 }
+SAMPLE_STRUCT = struct.Struct(">h")
 
 
 @dataclass(frozen=True)
@@ -29,7 +30,7 @@ class HGTTile:
     south: int
     west: int
     size: int
-    samples: array
+    samples: mmap.mmap
     void_value: int = VOID_VALUE
 
     @property
@@ -50,6 +51,9 @@ class HGTTile:
 
     def _index(self, row: int, col: int) -> int:
         return (row * self.size) + col
+
+    def _sample_value(self, index: int) -> int:
+        return SAMPLE_STRUCT.unpack_from(self.samples, index * 2)[0]
 
     def covers(self, lon: float, lat: float) -> bool:
         return self.west <= lon < self.east and self.south <= lat < self.north
@@ -72,16 +76,26 @@ class HGTTile:
         fx = col_f - col0
         fy = row_f - row0
 
-        neighbors = [
-            (self.samples[self._index(row0, col0)], (1.0 - fx) * (1.0 - fy)),
-            (self.samples[self._index(row0, col1)], fx * (1.0 - fy)),
-            (self.samples[self._index(row1, col0)], (1.0 - fx) * fy),
-            (self.samples[self._index(row1, col1)], fx * fy),
-        ]
+        weight00 = (1.0 - fx) * (1.0 - fy)
+        weight10 = fx * (1.0 - fy)
+        weight01 = (1.0 - fx) * fy
+        weight11 = fx * fy
+
+        value00 = self._sample_value(self._index(row0, col0))
+        value10 = self._sample_value(self._index(row0, col1))
+        value01 = self._sample_value(self._index(row1, col0))
+        value11 = self._sample_value(self._index(row1, col1))
+
         weighted = 0.0
         total_weight = 0.0
         fallback = None
-        for value, weight in neighbors:
+
+        for value, weight in (
+            (value00, weight00),
+            (value10, weight10),
+            (value01, weight01),
+            (value11, weight11),
+        ):
             if value == self.void_value:
                 continue
             if fallback is None:
@@ -99,14 +113,15 @@ class HGTCollection:
             raise ValueError("at least one HGT tile is required")
         self.tiles = tiles
         self._tile_map = {(tile.south, tile.west): tile for tile in tiles}
-
-    @property
-    def bounds(self) -> tuple[float, float, float, float]:
         west = min(tile.west for tile in self.tiles)
         south = min(tile.south for tile in self.tiles)
         east = max(tile.east for tile in self.tiles)
         north = max(tile.north for tile in self.tiles)
-        return float(west), float(south), float(east), float(north)
+        self._bounds = (float(west), float(south), float(east), float(north))
+
+    @property
+    def bounds(self) -> tuple[float, float, float, float]:
+        return self._bounds
 
     def sample(self, lon: float, lat: float) -> float | None:
         west, south, east, north = self.bounds
@@ -144,13 +159,8 @@ def read_hgt(path: str | Path) -> HGTTile:
     path = Path(path)
     coordinate = parse_hgt_coordinate(path)
     size = infer_hgt_size(path)
-    data = path.read_bytes()
-    samples = array("h")
-    samples.frombytes(data)
-    if samples.itemsize != 2:
-        raise ValueError("unexpected HGT sample width")
-    if sys.byteorder != "big":
-        samples.byteswap()
+    with path.open("rb") as file_obj:
+        samples = mmap.mmap(file_obj.fileno(), length=0, access=mmap.ACCESS_READ)
     return HGTTile(
         path=path,
         south=coordinate.lat,

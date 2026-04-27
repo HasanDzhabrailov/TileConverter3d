@@ -28,6 +28,9 @@ class MBTilesWriter:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.connection = sqlite3.connect(self.path)
+        self.connection.execute("PRAGMA journal_mode=MEMORY")
+        self.connection.execute("PRAGMA synchronous=NORMAL")
+        self.connection.execute("PRAGMA temp_store=MEMORY")
         self.connection.executescript(MBTILES_SCHEMA)
 
     def write_metadata(self, metadata: dict[str, str]) -> None:

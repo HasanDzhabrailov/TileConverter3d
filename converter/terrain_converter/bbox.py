@@ -62,7 +62,7 @@ def tile_bounds_xyz(x: int, y: int, zoom: int) -> Bounds:
     return Bounds(west=west, south=south, east=east, north=north)
 
 
-def tiles_for_bounds(bounds: Bounds, zoom: int) -> list[tuple[int, int, int]]:
+def tile_ranges_for_bounds(bounds: Bounds, zoom: int) -> tuple[int, int, int, int]:
     bounds = bounds.clamped()
     epsilon = 1e-12
     min_x = int(math.floor(lon_to_tile_x(bounds.west, zoom)))
@@ -74,4 +74,20 @@ def tiles_for_bounds(bounds: Bounds, zoom: int) -> list[tuple[int, int, int]]:
     max_x = max(0, min(limit, max_x))
     min_y = max(0, min(limit, min_y))
     max_y = max(0, min(limit, max_y))
-    return [(zoom, x, y) for x in range(min_x, max_x + 1) for y in range(min_y, max_y + 1)]
+    return min_x, max_x, min_y, max_y
+
+
+def iter_tiles_for_bounds(bounds: Bounds, zoom: int):
+    min_x, max_x, min_y, max_y = tile_ranges_for_bounds(bounds, zoom)
+    for x in range(min_x, max_x + 1):
+        for y in range(min_y, max_y + 1):
+            yield zoom, x, y
+
+
+def count_tiles_for_bounds(bounds: Bounds, zoom: int) -> int:
+    min_x, max_x, min_y, max_y = tile_ranges_for_bounds(bounds, zoom)
+    return (max_x - min_x + 1) * (max_y - min_y + 1)
+
+
+def tiles_for_bounds(bounds: Bounds, zoom: int) -> list[tuple[int, int, int]]:
+    return list(iter_tiles_for_bounds(bounds, zoom))
