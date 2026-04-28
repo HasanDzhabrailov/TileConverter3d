@@ -6,20 +6,28 @@ import json
 from pathlib import Path
 
 
-def build_style(tiles_url: str) -> dict[str, object]:
+def build_style(
+    tiles_url: str,
+    *,
+    source_name: str = "terrain-dem",
+    style_name: str = "Terrain DEM Style",
+    scheme: str = "xyz",
+    encoding: str = "mapbox",
+    tile_size: int = 256,
+) -> dict[str, object]:
     return {
         "version": 8,
-        "name": "Terrain DEM Style",
+        "name": style_name,
         "sources": {
-            "terrain-dem": {
+            source_name: {
                 "type": "raster-dem",
                 "tiles": [tiles_url],
-                "encoding": "mapbox",
-                "tileSize": 256,
-                "scheme": "xyz",
+                "encoding": encoding,
+                "tileSize": tile_size,
+                "scheme": scheme,
             }
         },
-        "terrain": {"source": "terrain-dem", "exaggeration": 1.0},
+        "terrain": {"source": source_name, "exaggeration": 1.0},
         "layers": [],
     }
 

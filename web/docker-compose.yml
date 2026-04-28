@@ -1,0 +1,10 @@
+services:
+  terrain-web:
+    build:
+      context: ..
+      dockerfile: web/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      TERRAIN_WEB_CONVERTER_BIN: terrain-converter
+      TERRAIN_WEB_STORAGE_ROOT: /app/web/data

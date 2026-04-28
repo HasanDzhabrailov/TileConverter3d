@@ -8,16 +8,26 @@ from pathlib import Path
 from .bbox import Bounds
 
 
-def build_tilejson(bounds: Bounds, min_zoom: int, max_zoom: int, tiles_url: str) -> dict[str, object]:
+def build_tilejson(
+    bounds: Bounds,
+    min_zoom: int,
+    max_zoom: int,
+    tiles_url: str,
+    *,
+    name: str = "terrain-dem",
+    scheme: str = "xyz",
+    encoding: str = "mapbox",
+    tile_size: int = 256,
+) -> dict[str, object]:
     center_lon, center_lat = bounds.center()
     return {
         "tilejson": "3.0.0",
-        "name": "terrain-dem",
+        "name": name,
         "type": "raster-dem",
-        "scheme": "xyz",
-        "encoding": "mapbox",
+        "scheme": scheme,
+        "encoding": encoding,
         "format": "png",
-        "tileSize": 256,
+        "tileSize": tile_size,
         "tiles": [tiles_url],
         "bounds": [bounds.west, bounds.south, bounds.east, bounds.north],
         "center": [center_lon, center_lat, min_zoom],

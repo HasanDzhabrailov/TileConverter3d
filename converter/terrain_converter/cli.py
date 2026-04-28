@@ -7,7 +7,7 @@ import os
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from pathlib import Path
 
-from .bbox import union_bounds
+from .bbox import Bounds, union_bounds
 from .hgt import load_hgt_collection
 from .mbtiles import MBTilesWriter
 from .style_json import build_style, write_style
@@ -18,27 +18,29 @@ from .validate import validate_inputs, validate_zoom_range
 
 DEFAULT_WORKERS = max(1, (os.cpu_count() or 1) - 1)
 _WORKER_COLLECTION = None
+_WORKER_TILE_SIZE = 256
 
 
-def _init_tile_worker(input_paths: list[str]) -> None:
-    global _WORKER_COLLECTION
+def _init_tile_worker(input_paths: list[str], tile_size: int) -> None:
+    global _WORKER_COLLECTION, _WORKER_TILE_SIZE
     _WORKER_COLLECTION = load_hgt_collection(input_paths)
+    _WORKER_TILE_SIZE = tile_size
 
 
 def _render_tile(task: tuple[int, int, int]) -> tuple[int, int, int, bytes]:
     if _WORKER_COLLECTION is None:
         raise RuntimeError("tile worker was not initialized")
     zoom, x, y = task
-    return zoom, x, y, generate_tile_png(_WORKER_COLLECTION, zoom, x, y)
+    return zoom, x, y, generate_tile_png(_WORKER_COLLECTION, zoom, x, y, tile_size=_WORKER_TILE_SIZE)
 
 
-def _iter_rendered_tiles(collection, input_paths: list[str], tiles, workers: int):
+def _iter_rendered_tiles(collection, input_paths: list[str], tiles, workers: int, tile_size: int):
     if workers <= 1:
         for zoom, x, y in tiles:
-            yield zoom, x, y, generate_tile_png(collection, zoom, x, y)
+            yield zoom, x, y, generate_tile_png(collection, zoom, x, y, tile_size=tile_size)
         return
 
-    with ProcessPoolExecutor(max_workers=workers, initializer=_init_tile_worker, initargs=([str(path) for path in input_paths],)) as executor:
+    with ProcessPoolExecutor(max_workers=workers, initializer=_init_tile_worker, initargs=([str(path) for path in input_paths], tile_size)) as executor:
         tiles_iter = iter(tiles)
         pending = set()
         max_pending = workers * 4
@@ -70,19 +72,33 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tiles-url", default="http://127.0.0.1:8080/terrain/{z}/{x}/{y}.png", help="Public terrain tile URL template")
     parser.add_argument("--minzoom", type=int, default=8, help="Minimum output zoom")
     parser.add_argument("--maxzoom", type=int, default=12, help="Maximum output zoom")
+    parser.add_argument("--bbox", nargs=4, type=float, metavar=("WEST", "SOUTH", "EAST", "NORTH"), help="Optional manual output bounds")
+    parser.add_argument("--tile-size", type=int, default=256, help="Output tile size in pixels")
+    parser.add_argument("--scheme", choices=["xyz", "tms"], default="xyz", help="Output TileJSON/style scheme")
+    parser.add_argument("--encoding", choices=["mapbox"], default="mapbox", help="Terrain encoding")
     parser.add_argument("--name", default="terrain-dem", help="MBTiles metadata name")
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS, help="Worker process count for tile rendering")
     return parser
+
+
+def _resolve_bounds(args: argparse.Namespace, collection) -> Bounds:
+    if getattr(args, "bbox", None):
+        west, south, east, north = args.bbox
+        return Bounds(west=west, south=south, east=east, north=north).clamped()
+    return union_bounds([tile.extent for tile in collection.tiles]).clamped()
 
 
 def run_conversion(args: argparse.Namespace) -> dict[str, object]:
     validate_zoom_range(args.minzoom, args.maxzoom)
     input_paths = validate_inputs(args.inputs)
     collection = load_hgt_collection(input_paths)
-    bounds = union_bounds([tile.extent for tile in collection.tiles]).clamped()
+    bounds = _resolve_bounds(args, collection)
     tile_count = count_xyz_tiles(bounds, args.minzoom, args.maxzoom)
     tiles = generate_xyz_tiles(collection, bounds, args.minzoom, args.maxzoom)
     workers = max(1, getattr(args, "workers", 1))
+    tile_size = max(1, int(getattr(args, "tile_size", 256)))
+    scheme = getattr(args, "scheme", "xyz")
+    encoding = getattr(args, "encoding", "mapbox")
 
     with MBTilesWriter(args.output_mbtiles) as writer:
         writer.write_metadata(
@@ -96,13 +112,22 @@ def run_conversion(args: argparse.Namespace) -> dict[str, object]:
                 "maxzoom": str(args.maxzoom),
             }
         )
-        for zoom, x, y, png_data in _iter_rendered_tiles(collection, input_paths, tiles, workers):
+        for zoom, x, y, png_data in _iter_rendered_tiles(collection, input_paths, tiles, workers, tile_size):
             writer.write_tile(zoom, x, y, png_data)
             write_tile_file(args.tile_root, zoom, x, y, png_data)
 
-    tilejson = build_tilejson(bounds, args.minzoom, args.maxzoom, args.tiles_url)
+    tilejson = build_tilejson(
+        bounds,
+        args.minzoom,
+        args.maxzoom,
+        args.tiles_url,
+        name=args.name,
+        scheme=scheme,
+        encoding=encoding,
+        tile_size=tile_size,
+    )
     write_tilejson(args.tilejson, tilejson)
-    style = build_style(args.tiles_url)
+    style = build_style(args.tiles_url, source_name=args.name, scheme=scheme, encoding=encoding, tile_size=tile_size)
     write_style(args.style_json, style)
     return {
         "bounds": bounds,
@@ -110,6 +135,9 @@ def run_conversion(args: argparse.Namespace) -> dict[str, object]:
         "output_mbtiles": str(Path(args.output_mbtiles)),
         "tilejson": str(Path(args.tilejson)),
         "style_json": str(Path(args.style_json)),
+        "scheme": scheme,
+        "encoding": encoding,
+        "tile_size": tile_size,
     }
 
 
