@@ -1,9 +1,0 @@
-
-> terrain-converter-web-frontend@0.1.0 dev
-> vite "--host" "0.0.0.0" "--port" "5173"
-
-[31merror when starting dev server:
-TypeError: crypto$2.getRandomValues is not a function
-    at resolveConfig (file:///D:/ai/terrain-converter-project/web/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:66671:16)
-    at async _createServer (file:///D:/ai/terrain-converter-project/web/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:63015:18)
-    at async CAC.<anonymous> (file:///D:/ai/terrain-converter-project/web/frontend/node_modules/vite/dist/node/cli.js:736:20)[39m

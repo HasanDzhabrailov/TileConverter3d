@@ -1,2 +1,0 @@
-[console_scripts]
-terrain-converter = terrain_converter.cli:main

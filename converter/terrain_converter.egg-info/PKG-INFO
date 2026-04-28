@@ -1,7 +1,0 @@
-Metadata-Version: 2.4
-Name: terrain-converter
-Version: 0.1.0
-Summary: Offline HGT/SRTM to MapLibre Terrain-RGB converter
-Requires-Python: >=3.11
-Provides-Extra: test
-Requires-Dist: pytest>=8; extra == "test"
