@@ -1,0 +1,30 @@
+{
+  "id": "tileset-fixed-dem",
+  "filename": "terrain-rgb.mbtiles",
+  "created_at": "2026-04-28T00:00:00Z",
+  "tile_url_template": "/api/mbtiles/tileset-fixed-dem/{z}/{x}/{y}.png",
+  "public_tile_url_template": "http://testserver/api/mbtiles/tileset-fixed-dem/{z}/{x}/{y}.png",
+  "tilejson_url": "/api/mbtiles/tileset-fixed-dem/tilejson",
+  "public_tilejson_url": "http://testserver/api/mbtiles/tileset-fixed-dem/tilejson",
+  "style_url": "/api/mbtiles/tileset-fixed-dem/style",
+  "public_style_url": "http://testserver/api/mbtiles/tileset-fixed-dem/style",
+  "mobile_style_url": "/api/mbtiles/tileset-fixed-dem/style-mobile",
+  "public_mobile_style_url": "http://testserver/api/mbtiles/tileset-fixed-dem/style-mobile",
+  "name": "Terrain RGB Demo",
+  "attribution": "Terrain attribution",
+  "source_type": "raster-dem",
+  "tile_format": "png",
+  "minzoom": 6,
+  "maxzoom": 10,
+  "bounds": {
+    "west": 10.0,
+    "south": 20.0,
+    "east": 11.0,
+    "north": 21.0
+  },
+  "view": {
+    "center_lon": 10.5,
+    "center_lat": 20.5,
+    "zoom": 6
+  }
+}

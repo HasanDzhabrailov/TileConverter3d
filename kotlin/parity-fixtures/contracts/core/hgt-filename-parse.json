@@ -1,0 +1,16 @@
+[
+  {
+    "filename": "S12W123.hgt",
+    "lat": -12,
+    "lon": -123
+  },
+  {
+    "filename": "n48e011.HGT",
+    "lat": 48,
+    "lon": 11
+  },
+  {
+    "filename": "bad-name.hgt",
+    "error": "invalid HGT filename: bad-name.hgt"
+  }
+]

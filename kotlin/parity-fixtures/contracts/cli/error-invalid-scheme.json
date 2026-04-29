@@ -1,0 +1,12 @@
+{
+  "description": "CLI invalid scheme value error",
+  "exitCode": 2,
+  "args": ["input.hgt", "--scheme", "invalid"],
+  "stderrContains": [
+    "scheme",
+    "invalid",
+    "xyz",
+    "tms"
+  ],
+  "stdoutEmpty": true
+}

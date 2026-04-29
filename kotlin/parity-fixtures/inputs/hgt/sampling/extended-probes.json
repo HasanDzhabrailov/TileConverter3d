@@ -1,0 +1,124 @@
+{
+  "seam_crossing": {
+    "description": "Test bilinear interpolation across file seams (adjacent HGT files)",
+    "files": [
+      {
+        "filename": "N00E000.hgt",
+        "size": 1201,
+        "updates": [
+          { "row": 0, "col": 1200, "value": 1000, "note": "eastern edge" }
+        ]
+      },
+      {
+        "filename": "N00E001.hgt",
+        "size": 1201,
+        "updates": [
+          { "row": 0, "col": 0, "value": 2000, "note": "western edge of adjacent file" }
+        ]
+      }
+    ],
+    "probes": [
+      { "lon": 0.999999, "lat": 0.0, "expected": 1000.0, "note": "just inside E000" },
+      { "lon": 1.000001, "lat": 0.0, "expected": 2000.0, "note": "just inside E001" },
+      { "lon": 1.0, "lat": 0.0, "expected": 1500.0, "note": "exact seam (average)" }
+    ]
+  },
+  "antimeridian_crossing": {
+    "description": "Test interpolation across the antimeridian (180°/-180° boundary)",
+    "files": [
+      {
+        "filename": "N00E179.hgt",
+        "size": 1201,
+        "updates": [
+          { "row": 0, "col": 1200, "value": 500, "note": "eastern edge" }
+        ]
+      },
+      {
+        "filename": "N00W179.hgt",
+        "size": 1201,
+        "updates": [
+          { "row": 0, "col": 0, "value": 1500, "note": "western edge (180°E)" }
+        ]
+      }
+    ],
+    "probes": [
+      { "lon": 179.999999, "lat": 0.0, "expected": 500.0, "note": "just inside E179" },
+      { "lon": -179.999999, "lat": 0.0, "expected": 1500.0, "note": "just inside W179 (180°E)" }
+    ]
+  },
+  "pole_proximity": {
+    "description": "Test behavior near poles (latitudes close to ±90°)",
+    "files": [
+      {
+        "filename": "N89E000.hgt",
+        "size": 1201,
+        "updates": [
+          { "row": 0, "col": 0, "value": 100 },
+          { "row": 0, "col": 600, "value": 200 },
+          { "row": 0, "col": 1200, "value": 300 }
+        ]
+      }
+    ],
+    "probes": [
+      { "lon": 0.0, "lat": 89.5, "expected": 100.0, "note": "near north pole" },
+      { "lon": 0.5, "lat": 89.5, "expected": 200.0, "note": "midpoint near pole" }
+    ]
+  },
+  "high_resolution_srtm1": {
+    "description": "Test 3601x3601 SRTM1 (1 arc-second) sampling precision",
+    "files": [
+      {
+        "filename": "N00E000.hgt",
+        "size": 3601,
+        "updates": [
+          { "row": 0, "col": 0, "value": 1000 },
+          { "row": 0, "col": 1, "value": 2000 },
+          { "row": 1, "col": 0, "value": 3000 },
+          { "row": 1, "col": 1, "value": 4000 }
+        ]
+      }
+    ],
+    "probes": [
+      { "lon": 0.0, "lat": 0.999722222222, "expected": 1000.0, "note": "3601 corner" },
+      { "lon": 0.000277777778, "lat": 0.999722222222, "expected": 2500.0, "note": "3601 bilinear center" }
+    ]
+  },
+  "manual_bbox_clip": {
+    "description": "Test manual bounding box clipping behavior",
+    "files": [
+      {
+        "filename": "N00E000.hgt",
+        "size": 1201,
+        "bbox": [0.2, 0.2, 0.8, 0.8],
+        "updates": [
+          { "row": 0, "col": 0, "value": 100 },
+          { "row": 600, "col": 600, "value": 500 },
+          { "row": 1200, "col": 1200, "value": 900 }
+        ]
+      }
+    ],
+    "probes": [
+      { "lon": 0.3, "lat": 0.3, "expected": 500.0, "note": "inside manual bbox" },
+      { "lon": 0.1, "lat": 0.1, "expected": null, "note": "outside manual bbox - should be clipped" }
+    ]
+  },
+  "void_edge_cases": {
+    "description": "Test void handling at cell edges and corners",
+    "files": [
+      {
+        "filename": "N00E000.hgt",
+        "size": 1201,
+        "updates": [
+          { "row": 100, "col": 100, "value": -32768 },
+          { "row": 100, "col": 101, "value": 1000 },
+          { "row": 101, "col": 100, "value": 2000 },
+          { "row": 101, "col": 101, "value": -32768 }
+        ]
+      }
+    ],
+    "probes": [
+      { "lon": 0.083333, "lat": 0.916667, "expected": 1500.0, "note": "2 voids, 2 valid - average of valid" },
+      { "lon": 0.083056, "lat": 0.916389, "expected": 1500.0, "note": "same cell, bilinear with void weighting" }
+    ]
+  }
+}

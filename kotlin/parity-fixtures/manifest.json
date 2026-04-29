@@ -1,0 +1,263 @@
+{
+  "version": 1,
+  "status": "active",
+  "generated_text_rules": {
+    "encoding": "utf-8",
+    "line_endings": "lf",
+    "json_key_order_contract": "semantic-equality-unless-explicitly-locked"
+  },
+  "comparison_defaults": {
+    "png": "byte-equal-or-decoded-rgba-equal",
+    "json": "semantic-equal-with-required-field-lock",
+    "sqlite": "normalized-query-equal",
+    "http": "status-and-payload-contract-equal",
+    "websocket": "event-sequence-and-field-contract-equal"
+  },
+  "fixtures": [
+    {
+      "id": "core-hgt-filename-parse",
+      "area": "hgt-filename-parsing",
+      "baseline_source": "legacy-established-behavior",
+      "inputs": [
+        "inputs/hgt/filenames/"
+      ],
+      "outputs": [
+        "contracts/core/hgt-filename-parse.json"
+      ],
+      "comparison": "json",
+      "severity": "release-blocker",
+      "normalization": [
+        "lf-json",
+        "semantic-json"
+      ],
+      "notes": "Lock north/south and east/west parsing, including uppercase extension handling."
+    },
+    {
+      "id": "core-supported-grid-validation",
+      "area": "supported-grid-size-validation",
+      "baseline_source": "legacy-established-behavior",
+      "inputs": [
+        "inputs/hgt/grid-validation/cases.json"
+      ],
+      "outputs": [
+        "contracts/core/grid-validation.json"
+      ],
+      "comparison": "json",
+      "severity": "release-blocker",
+      "normalization": [
+        "lf-json",
+        "semantic-json"
+      ],
+      "notes": "Lock accepted sizes, mixed-resolution rejection, and malformed input failures."
+    },
+    {
+      "id": "core-sampling-and-voids",
+      "area": "orientation-sampling-voids",
+      "baseline_source": "legacy-established-behavior",
+      "inputs": [
+        "inputs/hgt/sampling/probes.json"
+      ],
+      "outputs": [
+        "contracts/core/sample-probes.json"
+      ],
+      "comparison": "json",
+      "severity": "release-blocker",
+      "normalization": [
+        "lf-json",
+        "semantic-json"
+      ],
+      "notes": "Lock corner, edge, center, bilinear, seam, and void probe results."
+    },
+    {
+      "id": "core-sampling-extended",
+      "area": "orientation-sampling-voids",
+      "baseline_source": "legacy-established-behavior",
+      "inputs": [
+        "inputs/hgt/sampling/extended-probes.json"
+      ],
+      "outputs": [
+        "contracts/core/extended-sample-probes.json"
+      ],
+      "comparison": "json",
+      "severity": "release-blocker",
+      "normalization": [
+        "lf-json",
+        "semantic-json"
+      ],
+      "notes": "Extended coverage: seam-crossing interpolation, antimeridian, pole proximity, 3601 SRTM1, manual bbox clipping, and void edge cases."
+    },
+    {
+      "id": "core-bounds-and-coverage",
+      "area": "bounds-and-tile-coverage",
+      "baseline_source": "legacy-established-behavior",
+      "inputs": [
+        "inputs/hgt/coverage/cases.json"
+      ],
+      "outputs": [
+        "contracts/core/tile-coverage.json"
+      ],
+      "comparison": "json",
+      "severity": "release-blocker",
+      "normalization": [
+        "lf-json",
+        "semantic-json"
+      ],
+      "notes": "Lock exact world, exact-tile, and multi-tile coverage math to catch off-by-one drift."
+    },
+    {
+      "id": "core-terrain-rgb-png",
+      "area": "terrain-rgb-and-png",
+      "baseline_source": "legacy-established-behavior",
+      "inputs": [
+        "inputs/hgt/render/terrain-rgb-2x2.json"
+      ],
+      "outputs": [
+        "goldens/core/png/terrain-rgb-2x2-base64.txt",
+        "goldens/core/rgba/terrain-rgb-2x2.json"
+      ],
+      "comparison": "png",
+      "severity": "release-blocker",
+      "normalization": [
+        "decoded-rgba-allowed-when-ancillary-chunks-differ"
+      ],
+      "notes": "Lock Terrain-RGB bytes, alpha policy, and PNG rendering semantics."
+    },
+    {
+      "id": "core-mbtiles-and-documents",
+      "area": "mbtiles-tilejson-style",
+      "baseline_source": "legacy-established-behavior",
+      "inputs": [
+        "inputs/hgt/mbtiles/"
+      ],
+      "outputs": [
+        "goldens/core/mbtiles/",
+        "contracts/core/tilejson.json",
+        "contracts/core/style.json"
+      ],
+      "comparison": "sqlite",
+      "severity": "release-blocker",
+      "normalization": [
+        "sorted-metadata-rows",
+        "sorted-tile-rows",
+        "lf-json",
+        "semantic-json"
+      ],
+      "notes": "Lock XYZ-to-TMS row mapping, metadata, TileJSON defaults, and style defaults."
+    },
+    {
+      "id": "cli-contract",
+      "area": "cli-contract",
+      "baseline_source": "legacy-established-behavior",
+      "inputs": [
+        "contracts/cli/defaults.json"
+      ],
+      "outputs": [
+        "contracts/cli/defaults.json",
+        "goldens/cli/layout/"
+      ],
+      "comparison": "json",
+      "severity": "high",
+      "normalization": [
+        "lf-text",
+        "semantic-json",
+        "path-separators-in-harness-only"
+      ],
+      "notes": "Lock flags, defaults, exit behavior, validation, and output naming."
+    },
+    {
+      "id": "cli-help-and-errors",
+      "area": "cli-contract",
+      "baseline_source": "legacy-established-behavior",
+      "inputs": [
+        "contracts/cli/help.json",
+        "contracts/cli/error-missing-input.json",
+        "contracts/cli/error-invalid-zoom-range.json",
+        "contracts/cli/error-invalid-zoom-value.json",
+        "contracts/cli/error-file-not-found.json",
+        "contracts/cli/error-invalid-extension.json",
+        "contracts/cli/error-invalid-encoding.json",
+        "contracts/cli/error-invalid-scheme.json"
+      ],
+      "outputs": [
+        "contracts/cli/help.json",
+        "contracts/cli/error-missing-input.json",
+        "contracts/cli/error-invalid-zoom-range.json",
+        "contracts/cli/error-invalid-zoom-value.json",
+        "contracts/cli/error-file-not-found.json",
+        "contracts/cli/error-invalid-extension.json",
+        "contracts/cli/error-invalid-encoding.json",
+        "contracts/cli/error-invalid-scheme.json"
+      ],
+      "comparison": "json",
+      "severity": "high",
+      "normalization": [
+        "lf-text",
+        "semantic-json",
+        "substring-match-on-output"
+      ],
+      "notes": "Lock CLI help output, error messages, and exit codes. Tests validate stdout/stderr content and exit code contract."
+    },
+    {
+      "id": "backend-http-and-websocket",
+      "area": "backend-contract",
+      "baseline_source": "legacy-established-behavior",
+      "inputs": [
+        "contracts/backend/http/requests/",
+        "contracts/backend/websocket/requests/"
+      ],
+      "outputs": [
+        "contracts/backend/http/responses/",
+        "contracts/backend/websocket/transcripts/"
+      ],
+      "comparison": "http",
+      "severity": "release-blocker",
+      "normalization": [
+        "lf-json",
+        "semantic-json",
+        "stable-event-order"
+      ],
+      "notes": "Lock route payloads, validation responses, lifecycle payloads, and event structure."
+    },
+    {
+      "id": "uploaded-mbtiles-contract",
+      "area": "uploaded-mbtiles",
+      "baseline_source": "legacy-established-behavior",
+      "inputs": [
+        "inputs/mbtiles/uploads/raster.mbtiles",
+        "inputs/mbtiles/uploads/raster-dem.mbtiles",
+        "inputs/mbtiles/uploads/malformed-metadata.mbtiles",
+        "inputs/mbtiles/uploads/missing-metadata.mbtiles"
+      ],
+      "outputs": [
+        "contracts/backend/mbtiles/"
+      ],
+      "comparison": "http",
+      "severity": "release-blocker",
+      "normalization": [
+        "lf-json",
+        "semantic-json"
+      ],
+      "notes": "Lock metadata, style, style-mobile, TileJSON, tile serving, and source_type detection. Binary fixtures are committed for container-level upload parity."
+    },
+    {
+      "id": "uploaded-mbtiles-binary-integrity",
+      "area": "uploaded-mbtiles",
+      "baseline_source": "deterministic-generation-script",
+      "inputs": [
+        "inputs/mbtiles/uploads/generate_fixtures.py"
+      ],
+      "outputs": [
+        "inputs/mbtiles/uploads/raster.mbtiles",
+        "inputs/mbtiles/uploads/raster-dem.mbtiles",
+        "inputs/mbtiles/uploads/malformed-metadata.mbtiles",
+        "inputs/mbtiles/uploads/missing-metadata.mbtiles"
+      ],
+      "comparison": "byte-equal-or-regenerate",
+      "severity": "high",
+      "normalization": [
+        "regenerate-via-script-when-changing"
+      ],
+      "notes": "MBTiles binary fixtures can be regenerated via Python script. These files should remain stable unless the test requirements change."
+    }
+  ]
+}

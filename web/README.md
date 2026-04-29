@@ -1,87 +1,136 @@
 # Terrain Converter Web
 
-## Возможности
+Web workflow for uploading HGT files, running conversion jobs, downloading outputs, and previewing results.
 
-- загрузка файлов `.hgt` или `.zip`-архива с HGT-файлами
-- необязательная загрузка `base.mbtiles` для подложки в превью
-- настройка режима `bbox`, диапазона zoom, размера тайла, схемы и encoding
-- запуск `terrain-converter` через backend-обёртку для задач
-- потоковая передача логов и статуса задачи через WebSocket
-- скачивание `terrain-rgb.mbtiles`, `tiles.json` и `style.json`
-- превью результата через MapLibre GL JS
-- раздача сгенерированных terrain-тайлов и необязательных base MBTiles через backend
+## Components
 
-## Локальная разработка
+- `frontend/` – React/Vite UI sources bundled into the Compose-managed stack
+- `../kotlin/terrain-web/` – Kotlin/Ktor backend
 
-Быстрый запуск на Windows из корня репозитория:
+## Run the Backend
+
+Development:
+
+```bash
+gradle :terrain-web:run
+```
+
+Create launcher scripts:
+
+```bash
+gradle :terrain-web:installDist
+```
+
+Run installed launcher:
+
+- Windows: `kotlin/terrain-web/build/install/terrain-web/bin/terrain-web.bat`
+- Linux: `kotlin/terrain-web/build/install/terrain-web/bin/terrain-web`
+- macOS: `kotlin/terrain-web/build/install/terrain-web/bin/terrain-web`
+
+Environment variables:
+
+```
+TERRAIN_WEB_APP_NAME
+TERRAIN_WEB_HOST
+TERRAIN_WEB_PORT
+TERRAIN_WEB_STORAGE_ROOT
+TERRAIN_WEB_FRONTEND_DIST
+TERRAIN_WEB_PUBLIC_HOST
+```
+
+Typical local values:
+
+```
+TERRAIN_WEB_HOST=0.0.0.0
+TERRAIN_WEB_PORT=8080
+TERRAIN_WEB_STORAGE_ROOT=web/data
+TERRAIN_WEB_FRONTEND_DIST=web/frontend/dist
+```
+
+`TERRAIN_WEB_FRONTEND_DIST` is used only when the directory exists.
+
+## Run the Web Stack with Compose
+
+From the repo root:
+
+```bash
+docker compose -f web/docker-compose.yml up --build
+```
+
+This builds the frontend bundle and Kotlin/Ktor backend, then serves the stack at `http://127.0.0.1:8080`.
+
+## Frontend Development
+
+From `web/frontend/`:
+
+```bash
+npm install
+npm run dev
+```
+
+Dev server: `http://127.0.0.1:5173`
+
+Proxies:
+
+- `/api` → `http://127.0.0.1:8080`
+- `/ws` → `ws://127.0.0.1:8080`
+
+Build production bundle:
+
+```bash
+npm run build
+```
+
+When `web/frontend/dist` exists, the Ktor backend serves it at `/`.
+
+## Windows Helper Script
+
+From the repo root:
 
 ```bat
 start-web.cmd
 ```
 
-Скрипт открывает backend и frontend в отдельных окнах `cmd`.
+This starts the Kotlin backend on port `8080` and the Vite frontend on port `5173`. Windows-only.
 
-### Backend
+## Backend API
 
-Запускать из корня репозитория:
+### Job Conversion
 
-```bash
-python -m pip install -e ./converter
-python -m pip install -e ./web/backend[test]
-uvicorn app.main:app --host 0.0.0.0 --port 8080 --app-dir web/backend
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/jobs` | Create conversion job |
+| GET | `/api/jobs` | List all jobs |
+| GET | `/api/jobs/{jobId}` | Get job details |
+| GET | `/api/jobs/{jobId}/logs` | Get job logs |
+| WS | `/ws/jobs/{jobId}` | WebSocket for live updates |
+| GET | `/api/jobs/{jobId}/downloads/{artifact}` | Download artifact |
+| GET | `/api/jobs/{jobId}/terrain/{z}/{x}/{y}.png` | Terrain tile |
+| GET | `/api/jobs/{jobId}/base/{z}/{x}/{y}` | Base MBTiles tile |
+| GET | `/api/jobs/{jobId}/tilejson` | Job TileJSON |
+| GET | `/api/jobs/{jobId}/style` | Job style |
 
-### Frontend
+### Uploaded MBTiles
 
-```bash
-cd web/frontend
-npm install
-npm run dev
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/mbtiles` | Upload MBTiles |
+| GET | `/api/mbtiles` | List uploaded MBTiles |
+| GET | `/api/mbtiles/{tilesetId}` | Get tileset info |
+| GET | `/api/mbtiles/{tilesetId}/metadata` | MBTiles metadata |
+| GET | `/api/mbtiles/{tilesetId}/tilejson` | TileJSON |
+| GET | `/api/mbtiles/{tilesetId}/style` | Style |
+| GET | `/api/mbtiles/{tilesetId}/style-mobile` | Mobile style |
+| GET | `/api/mbtiles/{tilesetId}/{z}/{x}/{y}` | Tile (auto-format) |
+| GET | `/api/mbtiles/{tilesetId}/{z}/{x}/{y}.{ext}` | Tile with extension |
 
-Dev-сервер фронтенда проксирует `/api` и `/ws` на `http://127.0.0.1:8080`.
+### Storage Layout
 
-## Обзор API
+- Jobs: `web/data/jobs/<jobId>/...`
+- Uploaded MBTiles: `web/data/tilesets/<tilesetId>/...`
 
-- `POST /api/jobs` создать задачу конвертации
-- `GET /api/jobs` получить список задач
-- `GET /api/jobs/{jobId}` получить детали задачи
-- `GET /api/jobs/{jobId}/logs` получить логи
-- `GET /api/jobs/{jobId}/terrain/{z}/{x}/{y}.png` отдать PNG terrain-тайл
-- `GET /api/jobs/{jobId}/base/{z}/{x}/{y}` отдать тайл из необязательного base MBTiles
-- `GET /api/jobs/{jobId}/downloads/{artifact}` скачать артефакт
-- `GET /api/jobs/{jobId}/style` получить MapLibre style для превью
-- `WS /ws/jobs/{jobId}` получать события задачи и логи в реальном времени
-- `POST /api/mbtiles` загрузить готовый `.mbtiles` и начать раздачу тайлов
-- `GET /api/mbtiles/{tilesetId}/{z}/{x}/{y}` получить тайл из загруженного `.mbtiles`
-- `GET /api/mbtiles/{tilesetId}/metadata` получить metadata MBTiles
-- `GET /api/mbtiles/{tilesetId}/tilejson` получить готовый TileJSON
-- `GET /api/mbtiles/{tilesetId}/style` получить готовый style.json
-- `GET /api/mbtiles/{tilesetId}/style-mobile` получить style для MapLibre Native mobile
+## Notes
 
-Если открывать UI по IP-адресу машины, ссылки на тайлы для `MBTiles server` тоже будут формироваться через этот IP, что удобно для проверки с мобильного устройства.
-
-Для мобильного приложения внутри Wi-Fi сети используй absolute URL из API ответов:
-
-- `job.artifacts.public_terrain_tile_url_template`
-- `job.artifacts.public_tilejson`
-- `job.artifacts.public_stylejson`
-- `mbtiles.public_tile_url_template`
-
-Эти ссылки backend формирует через IP машины в локальной сети, если UI открыт не через LAN-адрес.
-
-Важно: по спецификации MapLibre `terrain` не поддерживается в `MapLibre Native Android/iOS`, поэтому для мобильного клиента используй `style-mobile`, который строит рельеф через `hillshade` поверх OpenStreetMap.
-
-Если на машине несколько сетевых адаптеров и backend выбрал не тот IP, задай его явно через переменную окружения:
-
-```bash
-set TERRAIN_WEB_PUBLIC_HOST=172.20.10.2
-```
-
-После этого перезапусти backend.
-
-## Docker
-
-```bash
-docker compose -f web/docker-compose.yml up --build
-```
+- The Ktor backend runs conversion through Kotlin code directly; it does not spawn the CLI.
+- Build the frontend first if you want the backend to serve the UI directly.
+- `web/Dockerfile` and `web/docker-compose.yml` run the Kotlin/Ktor backend.

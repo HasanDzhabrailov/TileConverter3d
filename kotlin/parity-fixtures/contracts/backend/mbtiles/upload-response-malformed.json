@@ -1,0 +1,21 @@
+{
+  "id": "tileset-fixed-malformed",
+  "filename": "broken.mbtiles",
+  "created_at": "2026-04-28T00:00:00Z",
+  "tile_url_template": "/api/mbtiles/tileset-fixed-malformed/{z}/{x}/{y}.png",
+  "public_tile_url_template": "http://testserver/api/mbtiles/tileset-fixed-malformed/{z}/{x}/{y}.png",
+  "tilejson_url": "/api/mbtiles/tileset-fixed-malformed/tilejson",
+  "public_tilejson_url": "http://testserver/api/mbtiles/tileset-fixed-malformed/tilejson",
+  "style_url": "/api/mbtiles/tileset-fixed-malformed/style",
+  "public_style_url": "http://testserver/api/mbtiles/tileset-fixed-malformed/style",
+  "mobile_style_url": "/api/mbtiles/tileset-fixed-malformed/style-mobile",
+  "public_mobile_style_url": "http://testserver/api/mbtiles/tileset-fixed-malformed/style-mobile",
+  "name": "Broken Tileset",
+  "attribution": null,
+  "source_type": "raster",
+  "tile_format": "png",
+  "minzoom": null,
+  "maxzoom": null,
+  "bounds": null,
+  "view": null
+}

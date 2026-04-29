@@ -1,0 +1,35 @@
+{
+  "bilinear": {
+    "filename": "N00E000.hgt",
+    "size": 1201,
+    "updates": [
+      { "row": 0, "col": 0, "value": 1000 },
+      { "row": 0, "col": 1, "value": 2000 },
+      { "row": 1, "col": 0, "value": -100 },
+      { "row": 1, "col": 1, "value": 300 },
+      { "row": 0, "col": 1200, "value": 2000 },
+      { "row": 1200, "col": 0, "value": -100 },
+      { "row": 1200, "col": 1200, "value": 300 }
+    ],
+    "probes": [
+      { "lon": 0.0, "lat": 0.999999999999, "expected": 1000.0 },
+      { "lon": 0.999999999999, "lat": 0.999999999999, "expected": 0.0 },
+      { "lon": 0.0, "lat": 0.0, "expected": 0.0 },
+      { "lon": 0.999999999999, "lat": 0.0, "expected": 0.0 },
+      { "lon": 0.00020833333333333335, "lat": 0.999375, "expected": 312.5 }
+    ]
+  },
+  "void_weighting": {
+    "filename": "N00E000.hgt",
+    "size": 1201,
+    "updates": [
+      { "row": 0, "col": 0, "value": 1000 },
+      { "row": 0, "col": 1, "value": -32768 },
+      { "row": 1, "col": 0, "value": -100 },
+      { "row": 1, "col": 1, "value": 300 }
+    ],
+    "probes": [
+      { "lon": 0.00020833333333333335, "lat": 0.999375, "expected": 200.0 }
+    ]
+  }
+}

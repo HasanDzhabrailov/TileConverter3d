@@ -1,0 +1,20 @@
+{
+  "version": 8,
+  "name": "Broken Tileset",
+  "sources": {
+    "tileset": {
+      "type": "raster",
+      "tiles": [
+        "http://testserver/api/mbtiles/tileset-fixed-malformed/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256
+    }
+  },
+  "layers": [
+    {
+      "id": "tileset-raster",
+      "type": "raster",
+      "source": "tileset"
+    }
+  ]
+}

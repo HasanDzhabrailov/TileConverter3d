@@ -1,0 +1,64 @@
+{
+  "version": 8,
+  "name": "Terrain RGB Demo",
+  "sources": {
+    "tileset": {
+      "type": "raster-dem",
+      "tiles": [
+        "http://testserver/api/mbtiles/tileset-fixed-dem/{z}/{x}/{y}.png"
+      ],
+      "encoding": "mapbox",
+      "tileSize": 256,
+      "scheme": "xyz",
+      "bounds": [
+        10.0,
+        20.0,
+        11.0,
+        21.0
+      ],
+      "minzoom": 6,
+      "maxzoom": 10,
+      "attribution": "Terrain attribution"
+    },
+    "osm-base": {
+      "type": "raster",
+      "tiles": [
+        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256,
+      "minzoom": 0,
+      "maxzoom": 19,
+      "attribution": "OpenStreetMap contributors"
+    }
+  },
+  "terrain": {
+    "source": "tileset",
+    "exaggeration": 1.0
+  },
+  "layers": [
+    {
+      "id": "osm-base-layer",
+      "type": "raster",
+      "source": "osm-base"
+    },
+    {
+      "id": "terrain-hillshade",
+      "type": "hillshade",
+      "source": "tileset",
+      "paint": {
+        "hillshade-exaggeration": 1.0,
+        "hillshade-shadow-color": "rgba(0, 0, 0, 0.35)",
+        "hillshade-highlight-color": "rgba(255, 255, 255, 0.25)",
+        "hillshade-accent-color": "rgba(0, 0, 0, 0.12)"
+      }
+    }
+  ],
+  "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+  "center": [
+    10.5,
+    20.5
+  ],
+  "zoom": 6
+}

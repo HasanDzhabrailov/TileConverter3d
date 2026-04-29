@@ -1,30 +1,52 @@
 # Repo Notes
 
-- The real project lives under `converter/`. Root also contains `android-demo/`, `docs/`, and repo-local OpenCode prompts in `.opencode/agents/gis-terrain.md` and `.opencode/commands/build-terrain-converter.md`.
-- There is no app/framework workspace here; `converter/pyproject.toml` is the executable source of truth.
+- The project target is Kotlin/KMP only: shared KMP core, Kotlin CLI, Ktor backend, and a Compose-managed web stack.
+- Preserve behavior over redesign: CLI flags, HTTP/WebSocket route shapes, JSON fields, artifact names, file layout, and Terrain-RGB semantics should remain compatible unless the task explicitly changes the contract.
+- No Python runtime dependencies are allowed in the final system. Runtime, tooling, Docker, scripts, and docs should assume Kotlin/JVM and Compose.
+- Keep the repo cross-platform for Windows, Linux, and macOS. Avoid OS-specific shell assumptions in runtime code and docs.
+
+# High-Value Paths
+
+- `kotlin/terrain-core/`: shared KMP/JVM terrain logic, HGT parsing, sampling, Terrain-RGB, PNG, MBTiles, TileJSON, style generation.
+- `kotlin/terrain-cli/`: Kotlin CLI contract and conversion entrypoint.
+- `kotlin/terrain-web/`: Ktor backend, jobs, WebSocket events, artifact routes, tile serving, and uploaded MBTiles support.
+- `web/frontend/src/`: React/Vite UI for uploads, job status/logs, preview, downloads, and MBTiles browsing.
+- `web/docker-compose.yml`: Compose entrypoint for the web stack.
+- `docs/kotlin-migration-plan.md`: canonical saved migration plan that later sessions should follow once created.
+- `docs/kotlin-migration-status.md`: canonical saved stage status that later sessions should update and follow.
+- `docs/kotlin-session-runbook.md`: canonical command order for multi-session Kotlin/KMP migration work.
+- `docs/reviews/`: saved review reports that later sessions should consult before starting the next phase.
 
 # Commands
 
-- Install for local work: `python -m pip install -e ./converter[test]`
-- Run tests: `python -m pytest` from `converter/`
-- If `pytest` is not installed yet, `python -m pytest` fails with `No module named pytest`; `python -m compileall terrain_converter tests` is the fastest smoke check.
-- Run the converter from `converter/`: `python -m terrain_converter.cli <hgt file or dir> --minzoom 8 --maxzoom 12`
+- Run all Kotlin tests: `gradle test`
+- Run terrain core tests: `gradle :terrain-core:test`
+- Run CLI tests: `gradle :terrain-cli:test`
+- Run backend tests: `gradle :terrain-web:test`
+- Run backend locally: `gradle :terrain-web:run`
+- Run CLI locally: `gradle :terrain-cli:run --args="<hgt file or dir> --minzoom 8 --maxzoom 12"`
+- Frontend dev: `npm install` then `npm run dev` from `web/frontend/`
+- Frontend build: `npm run build` from `web/frontend/`
+- Compose web stack: `docker compose -f web/docker-compose.yml up --build`
 
-# Structure
+# Constraints
 
-- `converter/terrain_converter/cli.py` orchestrates the full pipeline: validate inputs, load HGT, generate PNG DEM tiles, write MBTiles, then emit `terrain/tiles.json` and `style.json`.
-- `converter/terrain_converter/hgt.py` is the critical HGT reader/sampler: files are signed 16-bit big-endian and only `1201x1201` and `3601x3601` inputs are accepted.
-- `converter/terrain_converter/tiling.py` writes exact 8-bit RGBA PNGs; `R,G,B` hold Terrain-RGB values and pixels outside DEM coverage or on unresolved voids are fully transparent.
-- `converter/terrain_converter/mbtiles.py` writes XYZ tiles into MBTiles with a required TMS row flip.
+- Parity is more important than redesign.
+- Keep terrain DEM separate from any base map MBTiles.
+- Mixed `1201` and `3601` HGT inputs stay unsupported unless validation, compatibility expectations, and tests are updated together.
+- Preserve MapLibre terrain defaults unless explicitly changing contract: `encoding=mapbox`, `tileSize=256`, `scheme=xyz`, default tiles URL `http://127.0.0.1:8080/terrain/{z}/{x}/{y}.png`.
+- Job `tiles.json` and `style.json` use relative `/api/jobs/...` URLs; public absolute URLs are exposed separately in job artifact fields.
+- Converter output is written to the filesystem tile pyramid as XYZ. MBTiles rows are flipped to TMS in the writer, and the backend flips `y` only when serving job tiles for `scheme=tms`.
+- Uploaded `.mbtiles` handling is part of the backend contract, including `source_type` auto-detection and `/style-mobile` for mobile clients.
+- Preserve the backend workflow: upload -> conversion job -> logs/status -> artifacts -> tile serving.
+- No subprocess dependency on Python is allowed. Conversion, MBTiles handling, validation, logging, and serving must run natively through Kotlin.
+- If runtime flow changes, update `README.md`, `web/README.md`, and related docs with concise real commands.
 
-# Repo-Specific Constraints
+# Verification
 
-- Keep the terrain DEM separate from any base map MBTiles. The current converter writes a new `terrain-rgb.mbtiles`; it does not patch another database.
-- Mixed HGT resolutions are rejected in `validate.py`; do not silently resample `1201` and `3601` tiles together without changing validation and tests.
-- Output compatibility target is MapLibre `raster-dem` with `encoding: mapbox`, `tileSize: 256`, and `scheme: xyz`. Preserve the default tile URL template `http://127.0.0.1:8080/terrain/{z}/{x}/{y}.png` unless the task explicitly changes hosting.
-- The converter writes both MBTiles and a filesystem tile pyramid under `terrain/{z}/{x}/{y}.png`. If you change outputs, update `tilejson.py`, `style_json.py`, CLI defaults, and the Android demo together.
-
-# Verification Targets
-
-- High-value tests live in `converter/tests/` and cover HGT parsing/orientation, bounds math, Terrain-RGB encoding, MBTiles row addressing, and end-to-end output creation.
-- When changing sampling, tiling, or encoding behavior, run at least `test_hgt.py`, `test_tiling.py`, `test_mbtiles.py`, and the smoke conversion path.
+- Core changes: run `gradle :terrain-core:test`.
+- CLI changes: run `gradle :terrain-cli:test`.
+- Backend changes: run `gradle :terrain-web:test`.
+- Frontend changes: run `npm run build` in `web/frontend/`.
+- Backend changes that affect UI flows should still be checked against the existing Vite app.
+- Validate behavior on Windows, Linux, and macOS.

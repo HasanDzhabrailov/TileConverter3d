@@ -1,0 +1,30 @@
+{
+  "id": "tileset-fixed",
+  "filename": "sample.mbtiles",
+  "created_at": "2026-04-28T00:00:00Z",
+  "tile_url_template": "/api/mbtiles/tileset-fixed/{z}/{x}/{y}.png",
+  "public_tile_url_template": "http://testserver/api/mbtiles/tileset-fixed/{z}/{x}/{y}.png",
+  "tilejson_url": "/api/mbtiles/tileset-fixed/tilejson",
+  "public_tilejson_url": "http://testserver/api/mbtiles/tileset-fixed/tilejson",
+  "style_url": "/api/mbtiles/tileset-fixed/style",
+  "public_style_url": "http://testserver/api/mbtiles/tileset-fixed/style",
+  "mobile_style_url": "/api/mbtiles/tileset-fixed/style-mobile",
+  "public_mobile_style_url": "http://testserver/api/mbtiles/tileset-fixed/style-mobile",
+  "name": "Sample Tileset",
+  "attribution": "Sample attribution",
+  "source_type": "raster",
+  "tile_format": "png",
+  "minzoom": 4,
+  "maxzoom": 12,
+  "bounds": {
+    "west": 10.0,
+    "south": 20.0,
+    "east": 11.0,
+    "north": 21.0
+  },
+  "view": {
+    "center_lon": 10.5,
+    "center_lat": 20.5,
+    "zoom": 4
+  }
+}

@@ -8,27 +8,9 @@ Use the `gis-terrain` agent instructions and implement the complete terrain conv
 Create this project structure:
 
 ```text
-converter/
-  pyproject.toml
-  terrain_converter/
-    __init__.py
-    cli.py
-    hgt.py
-    bbox.py
-    rgb.py
-    tiling.py
-    mbtiles.py
-    tilejson.py
-    style_json.py
-    validate.py
-  tests/
-    test_hgt.py
-    test_bbox.py
-    test_rgb.py
-    test_tiling.py
-    test_mbtiles.py
-    test_tilejson.py
-    test_style_json.py
+kotlin/
+  terrain-core/
+  terrain-cli/
 
 android-demo/
   TerrainDemoStyle.kt
@@ -37,3 +19,9 @@ android-demo/
 
 docs/
   terrain-pipeline.md
+
+Requirements:
+
+- Kotlin/KMP runtime only
+- no Python dependency in conversion, MBTiles, scripts, Docker, or docs
+- preserve established converter behavior and output semantics

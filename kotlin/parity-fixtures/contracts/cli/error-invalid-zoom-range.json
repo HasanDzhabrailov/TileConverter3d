@@ -1,0 +1,11 @@
+{
+  "description": "CLI invalid zoom range error (minzoom > maxzoom)",
+  "exitCode": 2,
+  "args": ["input.hgt", "--minzoom", "15", "--maxzoom", "8"],
+  "stderrContains": [
+    "minzoom",
+    "maxzoom",
+    "invalid"
+  ],
+  "stdoutEmpty": true
+}

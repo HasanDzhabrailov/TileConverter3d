@@ -1,15 +1,114 @@
-data/
-*.hgt
+# OpenCode / IDE configuration
+.opencode/
 
+# Gradle
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# Kotlin/JVM
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+# IDE - IntelliJ IDEA / Android Studio
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
+atlassian-ide-plugin.xml
+
+# IDE - VS Code
+.vscode/
+*.code-workspace
+
+# IDE - Eclipse
+.settings/
+.project
+.classpath
+.factorypath
+
+# OS-specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Python (legacy reference)
 __pycache__/
 *.py[cod]
-.pytest_cache/
+*$py.class
+*.so
+.Python
 *.egg-info/
+dist/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+
+# Node.js / Frontend
 node_modules/
-*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 web/frontend/dist/
+
+# Project-specific generated files
+data/
+*.hgt
+*.hgt.zip
 *.png
 style.json
 tiles.json
 *.mbtiles
 *.mbtiles-journal
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs
+*.log
+logs/
+
+# Temp files
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Test outputs
+test-results/
+reports/
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+
+# Kotlin/Gradle specific
+.kotlin/
+kotlin/*/build/
+kotlin/**/build/
+!kotlin/**/src/**/build/

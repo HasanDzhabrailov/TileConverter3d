@@ -1,0 +1,10 @@
+{
+  "description": "CLI non-existent input file error",
+  "exitCode": 3,
+  "args": ["nonexistent.hgt"],
+  "stderrContains": [
+    "not found",
+    "does not exist"
+  ],
+  "stdoutEmpty": true
+}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
 import { connectJob, getJob, getServerInfo, listJobs, listMbtilesTilesets } from './api'
 import { ConvertForm } from './components/ConvertForm'
@@ -10,11 +10,36 @@ import { MbtilesPreview } from './components/MbtilesPreview'
 import { MbtilesServerPanel } from './components/MbtilesServerPanel'
 import type { Job, MBTilesTileset, ServerAddress } from './types'
 
+// Error Boundary Component
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error }
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('App Error:', error, info)
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '20px', color: 'red' }}>
+          <h2>Something went wrong:</h2>
+          <pre>{this.state.error?.message}</pre>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 function sameJson<T>(left: T, right: T): boolean {
   return JSON.stringify(left) === JSON.stringify(right)
 }
 
-export default function App() {
+function App() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [serverAddresses, setServerAddresses] = useState<ServerAddress[]>([])
   const [tilesets, setTilesets] = useState<MBTilesTileset[]>([])
@@ -26,13 +51,19 @@ export default function App() {
   useEffect(() => {
     let mounted = true
     const load = async () => {
-      const [nextJobs, nextTilesets, serverInfo] = await Promise.all([listJobs(), listMbtilesTilesets(), getServerInfo()])
-      if (!mounted) return
+      try {
+        console.log('Loading data...')
+        const [nextJobs, nextTilesets, serverInfo] = await Promise.all([listJobs(), listMbtilesTilesets(), getServerInfo()])
+        console.log('Data loaded:', { jobs: nextJobs.length, tilesets: nextTilesets.length })
+        if (!mounted) return
       setJobs((current) => (sameJson(current, nextJobs) ? current : nextJobs))
       setTilesets((current) => (sameJson(current, nextTilesets) ? current : nextTilesets))
       setServerAddresses((current) => (sameJson(current, serverInfo.addresses) ? current : serverInfo.addresses))
       if (!selectedJobId && nextJobs[0]) setSelectedJobId(nextJobs[0].id)
       if (!selectedTilesetId && nextTilesets[0]) setSelectedTilesetId(nextTilesets[0].id)
+      } catch (err) {
+        console.error('Failed to load data:', err)
+      }
     }
     load()
     const interval = window.setInterval(load, 5000)
@@ -113,5 +144,13 @@ export default function App() {
         </section>
       </main>
     </div>
+  )
+}
+
+export default function AppWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   )
 }

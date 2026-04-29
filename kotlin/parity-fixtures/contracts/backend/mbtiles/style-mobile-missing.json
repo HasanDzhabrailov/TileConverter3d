@@ -1,0 +1,37 @@
+{
+  "version": 8,
+  "name": "missing.mbtiles (mobile)",
+  "sources": {
+    "osm-base": {
+      "type": "raster",
+      "tiles": [
+        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256,
+      "minzoom": 0,
+      "maxzoom": 19,
+      "attribution": "OpenStreetMap contributors"
+    },
+    "tileset": {
+      "type": "raster",
+      "tiles": [
+        "http://testserver/api/mbtiles/tileset-fixed-missing/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256
+    }
+  },
+  "layers": [
+    {
+      "id": "osm-base-layer",
+      "type": "raster",
+      "source": "osm-base"
+    },
+    {
+      "id": "tileset-raster",
+      "type": "raster",
+      "source": "tileset"
+    }
+  ]
+}

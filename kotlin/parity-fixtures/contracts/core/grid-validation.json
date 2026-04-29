@@ -1,0 +1,9 @@
+{
+  "supported_sizes": [
+    1201,
+    3601
+  ],
+  "invalid_size_bytes": 6,
+  "invalid_size_error": "unsupported HGT file size: 6 bytes",
+  "mixed_resolution_error": "mixed HGT resolutions are not supported in one run"
+}

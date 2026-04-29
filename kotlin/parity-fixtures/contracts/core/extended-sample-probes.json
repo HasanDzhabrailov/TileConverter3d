@@ -1,0 +1,27 @@
+{
+  "seam_crossing_expected": [
+    1000.0,
+    2000.0,
+    1500.0
+  ],
+  "antimeridian_crossing_expected": [
+    500.0,
+    1500.0
+  ],
+  "pole_proximity_expected": [
+    100.0,
+    200.0
+  ],
+  "high_resolution_srtm1_expected": [
+    1000.0,
+    2500.0
+  ],
+  "manual_bbox_clip_expected": [
+    500.0,
+    null
+  ],
+  "void_edge_cases_expected": [
+    1500.0,
+    1500.0
+  ]
+}

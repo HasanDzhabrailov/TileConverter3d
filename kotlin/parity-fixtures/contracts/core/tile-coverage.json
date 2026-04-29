@@ -1,0 +1,24 @@
+[
+  {
+    "id": "world-z0",
+    "tiles": [
+      [0, 0, 0]
+    ],
+    "count": 1
+  },
+  {
+    "id": "exact-tile-z1",
+    "tiles": [
+      [1, 1, 1]
+    ],
+    "count": 1
+  },
+  {
+    "id": "south-half-z1",
+    "tiles": [
+      [1, 0, 1],
+      [1, 1, 1]
+    ],
+    "count": 2
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "format": "png",
+  "name": "Sample Tileset",
+  "attribution": "Sample attribution",
+  "bounds": "10,20,11,21",
+  "center": "10.5,20.5,4",
+  "minzoom": "4",
+  "maxzoom": "12"
+}

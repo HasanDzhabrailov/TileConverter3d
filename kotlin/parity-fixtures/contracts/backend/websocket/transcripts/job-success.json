@@ -1,0 +1,115 @@
+[
+  {
+    "type": "job",
+    "job": {
+      "id": "job-fixed",
+      "status": "pending",
+      "created_at": "2026-04-28T00:00:00Z",
+      "updated_at": "2026-04-28T00:00:00Z",
+      "options": {
+        "bbox_mode": "auto",
+        "bbox": null,
+        "minzoom": 8,
+        "maxzoom": 12,
+        "tile_size": 256,
+        "scheme": "xyz",
+        "encoding": "mapbox"
+      },
+      "has_base_mbtiles": false,
+      "artifacts": {
+        "terrain_mbtiles": null,
+        "tilejson": null,
+        "stylejson": null,
+        "terrain_tile_url_template": null,
+        "public_terrain_tile_url_template": null,
+        "public_tilejson": null,
+        "public_stylejson": null
+      },
+      "result": {
+        "bounds": null,
+        "tile_count": null
+      },
+      "error": null,
+      "logs": []
+    }
+  },
+  {
+    "type": "job",
+    "job": {
+      "id": "job-fixed",
+      "status": "running",
+      "created_at": "2026-04-28T00:00:00Z",
+      "updated_at": "2026-04-28T00:00:00Z",
+      "options": {
+        "bbox_mode": "auto",
+        "bbox": null,
+        "minzoom": 8,
+        "maxzoom": 12,
+        "tile_size": 256,
+        "scheme": "xyz",
+        "encoding": "mapbox"
+      },
+      "has_base_mbtiles": false,
+      "artifacts": {
+        "terrain_mbtiles": null,
+        "tilejson": null,
+        "stylejson": null,
+        "terrain_tile_url_template": null,
+        "public_terrain_tile_url_template": null,
+        "public_tilejson": null,
+        "public_stylejson": null
+      },
+      "result": {
+        "bounds": null,
+        "tile_count": null
+      },
+      "error": null,
+      "logs": []
+    }
+  },
+  {
+    "type": "log",
+    "line": "conversion finished"
+  },
+  {
+    "type": "job",
+    "job": {
+      "id": "job-fixed",
+      "status": "completed",
+      "created_at": "2026-04-28T00:00:00Z",
+      "updated_at": "2026-04-28T00:00:00Z",
+      "options": {
+        "bbox_mode": "auto",
+        "bbox": null,
+        "minzoom": 8,
+        "maxzoom": 12,
+        "tile_size": 256,
+        "scheme": "xyz",
+        "encoding": "mapbox"
+      },
+      "has_base_mbtiles": false,
+      "artifacts": {
+        "terrain_mbtiles": "/api/jobs/job-fixed/downloads/terrain-rgb.mbtiles",
+        "tilejson": "/api/jobs/job-fixed/downloads/tiles.json",
+        "stylejson": "/api/jobs/job-fixed/downloads/style.json",
+        "terrain_tile_url_template": "/api/jobs/job-fixed/terrain/{z}/{x}/{y}.png",
+        "public_terrain_tile_url_template": "http://testserver/api/jobs/job-fixed/terrain/{z}/{x}/{y}.png",
+        "public_tilejson": "http://testserver/api/jobs/job-fixed/tilejson",
+        "public_stylejson": "http://testserver/api/jobs/job-fixed/style"
+      },
+      "result": {
+        "bounds": {
+          "west": 10.0,
+          "south": 20.0,
+          "east": 11.0,
+          "north": 21.0
+        },
+        "tile_count": 1
+      },
+      "error": null,
+      "logs": [
+        "conversion finished"
+      ]
+    }
+  }
+]

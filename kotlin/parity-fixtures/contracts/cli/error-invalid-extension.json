@@ -1,0 +1,11 @@
+{
+  "description": "CLI invalid file extension error",
+  "exitCode": 3,
+  "args": ["input.txt"],
+  "stderrContains": [
+    "extension",
+    "hgt",
+    "invalid"
+  ],
+  "stdoutEmpty": true
+}

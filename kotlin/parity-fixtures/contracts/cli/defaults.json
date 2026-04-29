@@ -1,0 +1,16 @@
+{
+  "inputs": [
+    "input.hgt"
+  ],
+  "outputMbtiles": "terrain-rgb.mbtiles",
+  "tileRoot": "terrain",
+  "tileJson": "terrain/tiles.json",
+  "styleJson": "style.json",
+  "tilesUrl": "http://127.0.0.1:8080/terrain/{z}/{x}/{y}.png",
+  "minZoom": 8,
+  "maxZoom": 12,
+  "tileSize": 256,
+  "scheme": "xyz",
+  "encoding": "mapbox",
+  "name": "terrain-dem"
+}

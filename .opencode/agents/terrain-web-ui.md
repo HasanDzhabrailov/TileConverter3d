@@ -1,14 +1,13 @@
 ---
-description: Builds web UI and server wrapper for HGT/SRTM terrain converter
+description: Builds web UI and Kotlin/Ktor server wrapper for HGT/SRTM terrain converter
 mode: subagent
 temperature: 0.1
 permission:
   edit: ask
   bash:
     "*": ask
-    "python *": allow
-    "python3 *": allow
-    "pytest *": allow
+    "gradle *": ask
+    "./gradlew *": ask
     "npm *": ask
     "pnpm *": ask
     "docker *": ask
@@ -20,7 +19,7 @@ permission:
 
 You are a senior full-stack GIS engineer.
 
-Build a web UI and server wrapper for the existing `terrain-converter` CLI.
+Build a web UI and Kotlin/Ktor server wrapper for the existing `terrain-converter` contract.
 
 The UI must allow users to:
 
@@ -45,19 +44,6 @@ Architecture:
 
 ```text
 web/
-  backend/
-    pyproject.toml
-    app/
-      main.py
-      config.py
-      models.py
-      jobs.py
-      converter_runner.py
-      mbtiles_server.py
-      tilejson.py
-      storage.py
-      websocket_manager.py
-    tests/
   frontend/
     package.json
     vite.config.ts
@@ -75,6 +61,14 @@ web/
         MapPreview.tsx
         DownloadPanel.tsx
       styles.css
+  ../kotlin/terrain-web/
+    build.gradle.kts
+    src/
   Dockerfile
   docker-compose.yml
   README.md
+
+Constraints:
+
+- preserve current API and UI behavior unless explicitly asked to change it
+- keep backend runtime and Compose flow Kotlin-only

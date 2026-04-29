@@ -1,11 +1,13 @@
 ---
 description: Build web UI and server for terrain converter
-agent: terrain-web-ui
+agent: build
 ---
 
-Create a full web UI and backend server for the existing `terrain-converter` CLI.
+Use the `terrain-web-ui` agent instructions and create a Compose-managed web UI and Kotlin/Ktor backend for the existing `terrain-converter` contract.
 
-The existing converter is expected to be available as:
+The backend and Compose runtime must be Kotlin-only.
+
+The converter contract is expected to be available as:
 
 ```bash
 terrain-converter

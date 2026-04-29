@@ -1,0 +1,10 @@
+{
+  "description": "CLI missing required input file error",
+  "exitCode": 1,
+  "args": [],
+  "stderrContains": [
+    "input",
+    "required"
+  ],
+  "stdoutEmpty": true
+}

@@ -1,0 +1,10 @@
+{
+  "description": "CLI invalid zoom value error (negative)",
+  "exitCode": 2,
+  "args": ["input.hgt", "--minzoom", "-1"],
+  "stderrContains": [
+    "minzoom",
+    "invalid"
+  ],
+  "stdoutEmpty": true
+}

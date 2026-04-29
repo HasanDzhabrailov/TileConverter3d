@@ -6,12 +6,19 @@ COPY web/frontend/index.html ./
 COPY web/frontend/src ./src
 RUN npm run build
 
-FROM python:3.12-slim
+FROM gradle:8.7-jdk21 AS kotlin-build
 WORKDIR /app
-COPY converter ./converter
-RUN python -m pip install --no-cache-dir -e ./converter
-COPY web/backend ./web/backend
-RUN python -m pip install --no-cache-dir -e ./web/backend
+COPY build.gradle.kts settings.gradle.kts ./
+COPY kotlin ./kotlin
+RUN gradle :terrain-web:installDist --no-daemon
+
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+COPY --from=kotlin-build /app/kotlin/terrain-web/build/install/terrain-web ./terrain-web
 COPY --from=frontend-build /app/web/frontend/dist ./web/frontend/dist
 EXPOSE 8080
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+ENV TERRAIN_WEB_HOST=0.0.0.0
+ENV TERRAIN_WEB_PORT=8080
+ENV TERRAIN_WEB_STORAGE_ROOT=/app/web/data
+ENV TERRAIN_WEB_FRONTEND_DIST=/app/web/frontend/dist
+CMD ["/app/terrain-web/bin/terrain-web"]

@@ -8,9 +8,10 @@ set "BACKEND_PORT=8080"
 set "FRONTEND_PORT=5173"
 set "PUBLIC_HOST=%TERRAIN_WEB_PUBLIC_HOST%"
 
-where python >nul 2>nul
+where gradle >nul 2>nul
 if errorlevel 1 (
-  echo Python not found in PATH.
+  echo Gradle not found in PATH.
+  echo Install Gradle 8+ and JDK 21, then try again.
   exit /b 1
 )
 
@@ -41,7 +42,7 @@ if "%PUBLIC_HOST%"=="" for /f "tokens=2 delims=: " %%h in ('ipconfig ^| findstr 
 if "%PUBLIC_HOST%"=="" for /f "tokens=2 delims=: " %%h in ('ipconfig ^| findstr /R /C:"IPv4.*192\.168\."') do set "PUBLIC_HOST=%%h"
 if "%PUBLIC_HOST%"=="" for /f "tokens=2 delims=: " %%h in ('ipconfig ^| findstr /R /C:"IPv4.*10\."') do set "PUBLIC_HOST=%%h"
 if "%PUBLIC_HOST%"=="" for /f "tokens=2 delims=: " %%h in ('ipconfig ^| findstr /R /C:"IPv4.*172\.(1[6-9]\|2[0-9]\|3[0-1])\."') do set "PUBLIC_HOST=%%h"
-if "%PUBLIC_HOST%"=="" for /f %%h in ('python -c "import socket; s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.connect((''8.8.8.8'', 80)); print(s.getsockname()[0]); s.close()" 2^>nul') do set "PUBLIC_HOST=%%h"
+if "%PUBLIC_HOST%"=="" for /f %%h in ('powershell -NoProfile -Command "$c = New-Object System.Net.Sockets.UdpClient; $c.Connect(''8.8.8.8'',80); ($c.Client.LocalEndPoint).Address.IPAddressToString; $c.Close()" 2^>nul') do set "PUBLIC_HOST=%%h"
 if "%PUBLIC_HOST%"=="." set "PUBLIC_HOST="
 if "%PUBLIC_HOST%"=="0.0.0.0" set "PUBLIC_HOST="
 if "%PUBLIC_HOST%"=="" set "PUBLIC_HOST=172.20.10.2"
@@ -53,12 +54,12 @@ call :kill_port_process %BACKEND_PORT% "backend"
 call :kill_port_process %FRONTEND_PORT% "frontend"
 
 echo Starting backend...
-start "Terrain Backend" cmd /k "set TERRAIN_WEB_PUBLIC_HOST=%PUBLIC_HOST% && cd /d "%ROOT%" && python -m pip install -e ./converter && cd /d "%ROOT%\web\backend" && python -m pip install -e ".[test]" && uvicorn app.main:app --host 0.0.0.0 --port %BACKEND_PORT%"
+start "Terrain Backend" cmd /k "set TERRAIN_WEB_PUBLIC_HOST=%PUBLIC_HOST% && set TERRAIN_WEB_HOST=0.0.0.0 && set TERRAIN_WEB_PORT=%BACKEND_PORT% && cd /d "%ROOT%" && gradle :terrain-web:run"
 
 echo Waiting for backend health check...
 set "BACKEND_READY="
 for /l %%i in (1,1,60) do (
-  python -c "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:%BACKEND_PORT%/api/health', timeout=1).status == 200 else 1)" >nul 2>nul
+  powershell -NoProfile -Command "try { $r = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:%BACKEND_PORT%/api/health -TimeoutSec 1; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>nul
   if not errorlevel 1 (
     set "BACKEND_READY=1"
     goto backend_ready

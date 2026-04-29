@@ -1,0 +1,16 @@
+{
+  "description": "CLI help output contract",
+  "exitCode": 0,
+  "args": ["--help"],
+  "stdoutContains": [
+    "Usage:",
+    "Options:",
+    "--minzoom",
+    "--maxzoom",
+    "--output",
+    "--tile-size",
+    "--scheme",
+    "--encoding"
+  ],
+  "stderrEmpty": true
+}

@@ -1,0 +1,8 @@
+{
+  "format": "png",
+  "name": "Broken Tileset",
+  "bounds": "bad,bounds",
+  "center": "oops",
+  "minzoom": "abc",
+  "maxzoom": "xyz"
+}

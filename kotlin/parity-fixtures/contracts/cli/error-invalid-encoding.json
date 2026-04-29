@@ -1,0 +1,12 @@
+{
+  "description": "CLI invalid encoding value error",
+  "exitCode": 2,
+  "args": ["input.hgt", "--encoding", "invalid"],
+  "stderrContains": [
+    "encoding",
+    "invalid",
+    "mapbox",
+    "terrarium"
+  ],
+  "stdoutEmpty": true
+}

@@ -6,5 +6,12 @@ services:
     ports:
       - "8080:8080"
     environment:
-      TERRAIN_WEB_CONVERTER_BIN: terrain-converter
+      TERRAIN_WEB_HOST: 0.0.0.0
+      TERRAIN_WEB_PORT: 8080
       TERRAIN_WEB_STORAGE_ROOT: /app/web/data
+      TERRAIN_WEB_FRONTEND_DIST: /app/web/frontend/dist
+    volumes:
+      - terrain-web-data:/app/web/data
+
+volumes:
+  terrain-web-data:
