@@ -1,7 +1,7 @@
 FROM node:20-bookworm AS frontend-build
 WORKDIR /app/web/frontend
-COPY web/frontend/package.json web/frontend/tsconfig.json web/frontend/vite.config.ts ./
-RUN npm install
+COPY web/frontend/package.json web/frontend/package-lock.json web/frontend/tsconfig.json web/frontend/vite.config.ts ./
+RUN npm ci
 COPY web/frontend/index.html ./
 COPY web/frontend/src ./src
 RUN npm run build
@@ -14,6 +14,9 @@ RUN gradle :terrain-web:installDist --no-daemon
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=kotlin-build /app/kotlin/terrain-web/build/install/terrain-web ./terrain-web
 COPY --from=frontend-build /app/web/frontend/dist ./web/frontend/dist
 EXPOSE 8080

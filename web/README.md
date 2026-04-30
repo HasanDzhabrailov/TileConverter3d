@@ -58,6 +58,7 @@ docker compose -f web/docker-compose.yml up --build
 ```
 
 This builds the frontend bundle and Kotlin/Ktor backend, then serves the stack at `http://127.0.0.1:8080`.
+The container publishes a health check against `http://127.0.0.1:8080/api/health` and stores runtime data in the `terrain-web-data` volume mounted at `/app/web/data`.
 
 ## Frontend Development
 

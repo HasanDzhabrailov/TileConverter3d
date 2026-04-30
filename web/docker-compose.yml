@@ -3,6 +3,7 @@ services:
     build:
       context: ..
       dockerfile: web/Dockerfile
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
@@ -10,6 +11,12 @@ services:
       TERRAIN_WEB_PORT: 8080
       TERRAIN_WEB_STORAGE_ROOT: /app/web/data
       TERRAIN_WEB_FRONTEND_DIST: /app/web/frontend/dist
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
     volumes:
       - terrain-web-data:/app/web/data
 

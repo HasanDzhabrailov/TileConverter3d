@@ -205,12 +205,15 @@ docker compose -f web/docker-compose.yml up --build
 ```
 
 Compose builds the frontend bundle from `web/frontend/` and the Kotlin/Ktor backend from `kotlin/terrain-web/`, then serves both on `http://127.0.0.1:8080`.
+The container is considered healthy when `GET /api/health` returns `200 OK`.
 
 Health check:
 
 ```
 GET http://127.0.0.1:8080/api/health
 ```
+
+Persistent job data is stored in the named Docker volume `terrain-web-data`, mounted at `/app/web/data` inside the container.
 
 ## Frontend Development
 
