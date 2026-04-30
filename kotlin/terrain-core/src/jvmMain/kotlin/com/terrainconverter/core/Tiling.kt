@@ -53,9 +53,11 @@ fun generateXyzTiles(bounds: Bounds, minZoom: Int, maxZoom: Int): Sequence<Tripl
     }
 }
 
-fun writeTileFile(tileRoot: Path, zoom: Int, x: Int, y: Int, tileData: ByteArray): Path {
+fun writeTileFile(tileRoot: Path, zoom: Int, x: Int, y: Int, tileData: ByteArray, ensureParentExists: Boolean = true): Path {
     val tilePath = tileRoot.resolve(zoom.toString()).resolve(x.toString()).resolve("$y.png")
-    Files.createDirectories(tilePath.parent)
+    if (ensureParentExists) {
+        Files.createDirectories(tilePath.parent)
+    }
     Files.write(tilePath, tileData)
     return tilePath
 }

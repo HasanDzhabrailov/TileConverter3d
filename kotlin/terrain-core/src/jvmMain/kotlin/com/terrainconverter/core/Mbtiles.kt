@@ -20,9 +20,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS metadata_name ON metadata (name);
 fun xyzToTmsRow(zoom: Int, y: Int): Int = ((1 shl zoom) - 1) - y
 
 class MbtilesWriter(private val path: Path) : AutoCloseable {
-    private val batchSize = 256
+    private val batchSize = 1024
     private val tileBatch = ArrayList<TileRow>(batchSize)
     private val connection: Connection
+    private val metadataStatement: java.sql.PreparedStatement
+    private val tileStatement: java.sql.PreparedStatement
 
     init {
         Class.forName("org.sqlite.JDBC")
@@ -36,17 +38,20 @@ class MbtilesWriter(private val path: Path) : AutoCloseable {
             statement.executeUpdate(MBTILES_SCHEMA)
         }
         connection.autoCommit = false
+        metadataStatement = connection.prepareStatement("INSERT OR REPLACE INTO metadata(name, value) VALUES(?, ?)")
+        tileStatement = connection.prepareStatement(
+            "INSERT OR REPLACE INTO tiles(zoom_level, tile_column, tile_row, tile_data) VALUES(?, ?, ?, ?)"
+        )
     }
 
     fun writeMetadata(metadata: Map<String, String>) {
-        connection.prepareStatement("INSERT OR REPLACE INTO metadata(name, value) VALUES(?, ?)").use { statement ->
-            for ((name, value) in metadata.toSortedMap()) {
-                statement.setString(1, name)
-                statement.setString(2, value)
-                statement.addBatch()
-            }
-            statement.executeBatch()
+        for ((name, value) in metadata.toSortedMap()) {
+            metadataStatement.setString(1, name)
+            metadataStatement.setString(2, value)
+            metadataStatement.addBatch()
         }
+        metadataStatement.executeBatch()
+        metadataStatement.clearBatch()
         connection.commit()
     }
 
@@ -61,18 +66,15 @@ class MbtilesWriter(private val path: Path) : AutoCloseable {
         if (tileBatch.isEmpty()) {
             return
         }
-        connection.prepareStatement(
-            "INSERT OR REPLACE INTO tiles(zoom_level, tile_column, tile_row, tile_data) VALUES(?, ?, ?, ?)"
-        ).use { statement ->
-            for (row in tileBatch) {
-                statement.setInt(1, row.zoom)
-                statement.setInt(2, row.x)
-                statement.setInt(3, row.y)
-                statement.setBytes(4, row.tileData)
-                statement.addBatch()
-            }
-            statement.executeBatch()
+        for (row in tileBatch) {
+            tileStatement.setInt(1, row.zoom)
+            tileStatement.setInt(2, row.x)
+            tileStatement.setInt(3, row.y)
+            tileStatement.setBytes(4, row.tileData)
+            tileStatement.addBatch()
         }
+        tileStatement.executeBatch()
+        tileStatement.clearBatch()
         connection.commit()
         tileBatch.clear()
     }
@@ -81,7 +83,15 @@ class MbtilesWriter(private val path: Path) : AutoCloseable {
         try {
             flushTiles()
         } finally {
-            connection.close()
+            try {
+                metadataStatement.close()
+            } finally {
+                try {
+                    tileStatement.close()
+                } finally {
+                    connection.close()
+                }
+            }
         }
     }
 }

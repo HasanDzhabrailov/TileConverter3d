@@ -1,6 +1,7 @@
 package com.terrainconverter.core
 
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutorCompletionService
 import java.util.concurrent.Executors
@@ -116,6 +117,7 @@ fun runConversion(options: ConversionOptions): ConversionResult {
     val tileCount = countXyzTiles(bounds, options.minZoom, options.maxZoom)
     val tileSize = options.tileSize.coerceAtLeast(1)
     options.progress?.invoke("[CONVERT] Resolved bounds and queued $tileCount tile(s)")
+    var currentTileDir: Path? = null
 
     MbtilesWriter(options.outputMbtiles).use { writer ->
         writer.writeMetadata(
@@ -131,7 +133,12 @@ fun runConversion(options: ConversionOptions): ConversionResult {
         )
         renderTiles(collection, bounds, options.minZoom, options.maxZoom, tileSize, options.workers, tileCount, options.progress) { zoom, x, y, pngData ->
             writer.writeTile(zoom, x, y, pngData)
-            writeTileFile(options.tileRoot, zoom, x, y, pngData)
+            val tileDir = options.tileRoot.resolve(zoom.toString()).resolve(x.toString())
+            if (currentTileDir != tileDir) {
+                tileDir.createDirectories()
+                currentTileDir = tileDir
+            }
+            writeTileFile(options.tileRoot, zoom, x, y, pngData, ensureParentExists = false)
         }
     }
 
