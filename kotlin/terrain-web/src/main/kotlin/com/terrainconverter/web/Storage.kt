@@ -1,7 +1,7 @@
 package com.terrainconverter.web
 
 import io.ktor.http.content.PartData
-import io.ktor.utils.io.core.readBytes
+import io.ktor.utils.io.core.readAvailable
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -63,7 +63,17 @@ class Storage(val root: Path) {
 
     suspend fun saveUpload(part: PartData.FileItem, destination: Path) {
         destination.parent?.createDirectories()
-        Files.write(destination, part.provider().readBytes())
+        part.provider().use { input ->
+            Files.newOutputStream(destination).use { output ->
+                val buffer = ByteArray(DEFAULT_UPLOAD_BUFFER_SIZE)
+                while (!input.endOfInput) {
+                    val read = input.readAvailable(buffer, 0, buffer.size)
+                    if (read > 0) {
+                        output.write(buffer, 0, read)
+                    }
+                }
+            }
+        }
         part.dispose()
     }
 
@@ -81,3 +91,5 @@ class Storage(val root: Path) {
         paths.inputs.createDirectories()
     }
 }
+
+private const val DEFAULT_UPLOAD_BUFFER_SIZE = 64 * 1024

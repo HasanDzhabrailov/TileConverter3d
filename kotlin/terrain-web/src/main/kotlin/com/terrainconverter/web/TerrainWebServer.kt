@@ -11,6 +11,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
+import io.ktor.utils.io.core.readAvailable
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
@@ -587,6 +588,23 @@ private data class ParsedMbtilesMultipart(
     val file: TempUpload?,
 )
 
+private fun saveMultipartFile(part: PartData.FileItem, destination: Path) {
+    destination.parent?.let { Files.createDirectories(it) }
+    part.provider().use { input ->
+        Files.newOutputStream(destination).use { output ->
+            val buffer = ByteArray(MULTIPART_UPLOAD_BUFFER_SIZE)
+            while (!input.endOfInput) {
+                val read = input.readAvailable(buffer, 0, buffer.size)
+                if (read > 0) {
+                    output.write(buffer, 0, read)
+                }
+            }
+        }
+    }
+}
+
+private const val MULTIPART_UPLOAD_BUFFER_SIZE = 64 * 1024
+
 private suspend fun parseJobMultipart(multipart: io.ktor.http.content.MultiPartData, tempRoot: Path): ParsedJobMultipart {
     val form = linkedMapOf<String, String>()
     val hgtFiles = mutableListOf<TempUpload>()
@@ -597,8 +615,7 @@ private suspend fun parseJobMultipart(multipart: io.ktor.http.content.MultiPartD
             is PartData.FileItem -> {
                 val name = cleanFilename(part.originalFileName ?: "upload.bin")
                 val destination = tempRoot.resolve(UUID.randomUUID().toString()).resolve(name)
-                destination.parent?.let { Files.createDirectories(it) }
-                Files.write(destination, part.provider().readBytes())
+                saveMultipartFile(part, destination)
                 val upload = TempUpload(name, destination)
                 when (part.name) {
                     "hgt_files" -> hgtFiles += upload
@@ -621,8 +638,7 @@ private suspend fun parseMbtilesMultipart(multipart: io.ktor.http.content.MultiP
             is PartData.FileItem -> if (part.name == "mbtiles") {
                 val name = cleanFilename(part.originalFileName ?: "tiles.mbtiles")
                 val destination = tempRoot.resolve(UUID.randomUUID().toString()).resolve(name)
-                destination.parent?.let { Files.createDirectories(it) }
-                Files.write(destination, part.provider().readBytes())
+                saveMultipartFile(part, destination)
                 file = TempUpload(name, destination)
             }
             else -> {}
