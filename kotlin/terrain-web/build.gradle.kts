@@ -9,7 +9,7 @@ kotlin {
 }
 
 repositories {
-    mavenCentral()
+    maven(url = "https://repo1.maven.org/maven2/")
 }
 
 val ktorVersion = "2.3.12"

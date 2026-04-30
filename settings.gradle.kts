@@ -1,3 +1,10 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven(url = "https://repo1.maven.org/maven2/")
+    }
+}
+
 rootProject.name = "terrain-converter-project"
 
 include("terrain-core")
