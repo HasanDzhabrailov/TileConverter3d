@@ -7,11 +7,19 @@ fun generateTileRgba(collection: ElevationSampler, zoom: Int, x: Int, y: Int, ti
     val sampleCount = tileSize * tileSize
     val lon = DoubleArray(sampleCount)
     val lat = DoubleArray(sampleCount)
+    val lonByColumn = DoubleArray(tileSize)
+    val latByRow = DoubleArray(tileSize)
+    for (px in 0 until tileSize) {
+        lonByColumn[px] = tileToLonLat(x + ((px + 0.5) / tileSize.toDouble()), y.toDouble(), zoom).first
+    }
     for (py in 0 until tileSize) {
-        val sampleLat = tileToLonLat(x.toDouble(), y + ((py + 0.5) / tileSize.toDouble()), zoom).second
+        latByRow[py] = tileToLonLat(x.toDouble(), y + ((py + 0.5) / tileSize.toDouble()), zoom).second
+    }
+    for (py in 0 until tileSize) {
+        val sampleLat = latByRow[py]
         for (px in 0 until tileSize) {
             val index = (py * tileSize) + px
-            lon[index] = tileToLonLat(x + ((px + 0.5) / tileSize.toDouble()), y.toDouble(), zoom).first
+            lon[index] = lonByColumn[px]
             lat[index] = sampleLat
         }
     }

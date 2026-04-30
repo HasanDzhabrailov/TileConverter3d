@@ -116,12 +116,62 @@ class HgtCollection(val tiles: List<HgtTile>) : ElevationSampler {
         val tile = tileMap[Pair(floor(lat).toInt(), floor(lon).toInt())] ?: return null
         return tile.sampleBilinear(lon, lat)
     }
+
+    override fun sampleGrid(width: Int, height: Int, lon: DoubleArray, lat: DoubleArray): GridSampleResult {
+        require(width >= 0) { "width must be >= 0" }
+        require(height >= 0) { "height must be >= 0" }
+        require(lon.size == lat.size) { "lon and lat grids must have the same shape" }
+        require(lon.size == width * height) { "grid dimensions do not match lon/lat data" }
+
+        val values = DoubleArray(lon.size)
+        val valid = BooleanArray(lon.size)
+        var currentKey: Pair<Int, Int>? = null
+        var currentTile: HgtTile? = null
+        for (index in lon.indices) {
+            val sampleLon = lon[index]
+            val sampleLat = lat[index]
+            if (!(bounds.west <= sampleLon && sampleLon < bounds.east && bounds.south <= sampleLat && sampleLat < bounds.north)) {
+                continue
+            }
+            val key = Pair(floor(sampleLat).toInt(), floor(sampleLon).toInt())
+            val tile = if (currentKey == key) {
+                currentTile
+            } else {
+                tileMap[key].also {
+                    currentKey = key
+                    currentTile = it
+                }
+            } ?: continue
+            val value = tile.sampleBilinear(sampleLon, sampleLat) ?: continue
+            values[index] = value
+            valid[index] = true
+        }
+        return GridSampleResult(values = values, valid = valid, width = width, height = height)
+    }
 }
 
 interface ElevationSampler {
     val bounds: Bounds
 
     fun sample(lon: Double, lat: Double): Double?
+
+    fun sampleGrid(width: Int, height: Int, lon: DoubleArray, lat: DoubleArray): GridSampleResult {
+        require(width >= 0) { "width must be >= 0" }
+        require(height >= 0) { "height must be >= 0" }
+        require(lon.size == lat.size) { "lon and lat grids must have the same shape" }
+        require(lon.size == width * height) { "grid dimensions do not match lon/lat data" }
+
+        val values = DoubleArray(lon.size)
+        val valid = BooleanArray(lon.size)
+        for (index in lon.indices) {
+            val value = sample(lon[index], lat[index])
+            if (value != null) {
+                values[index] = value
+                valid[index] = true
+            }
+        }
+        return GridSampleResult(values = values, valid = valid, width = width, height = height)
+    }
 }
 
 /**

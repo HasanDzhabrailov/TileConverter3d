@@ -48,6 +48,42 @@ private class LazyHgtSampler(
         threadLocalTile.set(ThreadLocalTile(key, tile))
         return tile.sampleBilinear(lon, lat)
     }
+
+    override fun sampleGrid(width: Int, height: Int, lon: DoubleArray, lat: DoubleArray): GridSampleResult {
+        require(width >= 0) { "width must be >= 0" }
+        require(height >= 0) { "height must be >= 0" }
+        require(lon.size == lat.size) { "lon and lat grids must have the same shape" }
+        require(lon.size == width * height) { "grid dimensions do not match lon/lat data" }
+
+        val values = DoubleArray(lon.size)
+        val valid = BooleanArray(lon.size)
+        var currentKey: Pair<Int, Int>? = null
+        var currentTile: HgtTile? = null
+        for (index in lon.indices) {
+            val sampleLon = lon[index]
+            val sampleLat = lat[index]
+            if (!(bounds.west <= sampleLon && sampleLon < bounds.east && bounds.south <= sampleLat && sampleLat < bounds.north)) {
+                continue
+            }
+            val key = Pair(floor(sampleLat).toInt(), floor(sampleLon).toInt())
+            val tile = if (currentKey == key) {
+                currentTile
+            } else {
+                val descriptor = tileMap[key]
+                val loaded = descriptor?.let { cache.getOrLoad(key) { readHgt(it.path) } }
+                currentKey = key
+                currentTile = loaded
+                loaded
+            } ?: continue
+            val value = tile.sampleBilinear(sampleLon, sampleLat) ?: continue
+            values[index] = value
+            valid[index] = true
+        }
+        currentKey?.let { key ->
+            currentTile?.let { tile -> threadLocalTile.set(ThreadLocalTile(key, tile)) }
+        }
+        return GridSampleResult(values = values, valid = valid, width = width, height = height)
+    }
 }
 
 private const val DEFAULT_HGT_CACHE_SIZE = 16
