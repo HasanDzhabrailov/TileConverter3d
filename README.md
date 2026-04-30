@@ -206,6 +206,7 @@ docker compose -f web/docker-compose.yml up --build
 
 Compose builds the frontend bundle from `web/frontend/` and the Kotlin/Ktor backend from `kotlin/terrain-web/`, then serves both on `http://127.0.0.1:8080`.
 The container is considered healthy when `GET /api/health` returns `200 OK`.
+The backend defaults to `JAVA_TOOL_OPTIONS="-Xms512m -Xmx4g"`; override that environment variable if your HGT dataset needs a different heap size.
 
 Health check:
 

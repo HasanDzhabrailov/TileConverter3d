@@ -101,21 +101,27 @@ data class HgtTile(
  * Collection of HGT tiles covering a geographic area.
  * Platform-neutral - works with in-memory tile data.
  */
-class HgtCollection(val tiles: List<HgtTile>) {
+class HgtCollection(val tiles: List<HgtTile>) : ElevationSampler {
     init {
         require(tiles.isNotEmpty()) { "at least one HGT tile is required" }
     }
 
     private val tileMap: Map<Pair<Int, Int>, HgtTile> = tiles.associateBy { Pair(it.south, it.west) }
-    val bounds: Bounds = unionBounds(tiles.map { it.extent })
+    override val bounds: Bounds = unionBounds(tiles.map { it.extent })
 
-    fun sample(lon: Double, lat: Double): Double? {
+    override fun sample(lon: Double, lat: Double): Double? {
         if (!(bounds.west <= lon && lon < bounds.east && bounds.south <= lat && lat < bounds.north)) {
             return null
         }
         val tile = tileMap[Pair(floor(lat).toInt(), floor(lon).toInt())] ?: return null
         return tile.sampleBilinear(lon, lat)
     }
+}
+
+interface ElevationSampler {
+    val bounds: Bounds
+
+    fun sample(lon: Double, lat: Double): Double?
 }
 
 /**

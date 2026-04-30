@@ -35,12 +35,12 @@ data class ConversionResult(
     val tileSize: Int,
 )
 
-private fun resolveBounds(boundsOverride: Bounds?, collection: HgtCollection): Bounds {
-    return boundsOverride?.clamped() ?: unionBounds(collection.tiles.map { it.extent }).clamped()
+private fun resolveBounds(boundsOverride: Bounds?, collection: ElevationSampler): Bounds {
+    return boundsOverride?.clamped() ?: collection.bounds.clamped()
 }
 
 private fun renderTiles(
-    collection: HgtCollection,
+    collection: ElevationSampler,
     bounds: Bounds,
     minZoom: Int,
     maxZoom: Int,
@@ -94,7 +94,7 @@ private fun renderTiles(
 fun runConversion(options: ConversionOptions): ConversionResult {
     validateZoomRange(options.minZoom, options.maxZoom)
     val inputPaths = validateInputs(options.inputs)
-    val collection = loadHgtCollection(inputPaths)
+    val collection = loadOnDemandHgtSampler(inputPaths)
     val bounds = resolveBounds(options.bbox, collection)
     val tileCount = countXyzTiles(bounds, options.minZoom, options.maxZoom)
     val tileSize = options.tileSize.coerceAtLeast(1)

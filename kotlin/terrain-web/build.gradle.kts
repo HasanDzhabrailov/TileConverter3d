@@ -35,6 +35,7 @@ dependencies {
 application {
     mainClass = "com.terrainconverter.web.TerrainWebServerKt"
     applicationName = "terrain-web"
+    applicationDefaultJvmArgs = listOf("-Xms512m", "-Xmx4g")
 }
 
 tasks.test {

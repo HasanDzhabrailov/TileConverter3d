@@ -21,7 +21,7 @@ fun HgtTile.sampleBilinearGrid(lon: DoubleArray, lat: DoubleArray): Pair<DoubleA
     return Pair(values, valid)
 }
 
-fun HgtCollection.sampleGrid(width: Int, height: Int, lon: DoubleArray, lat: DoubleArray): GridSampleResult {
+fun ElevationSampler.sampleGrid(width: Int, height: Int, lon: DoubleArray, lat: DoubleArray): GridSampleResult {
     require(width >= 0) { "width must be >= 0" }
     require(height >= 0) { "height must be >= 0" }
     require(lon.size == lat.size) { "lon and lat grids must have the same shape" }

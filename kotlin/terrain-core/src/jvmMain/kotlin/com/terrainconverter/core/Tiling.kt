@@ -3,7 +3,7 @@ package com.terrainconverter.core
 import java.nio.file.Files
 import java.nio.file.Path
 
-fun generateTileRgba(collection: HgtCollection, zoom: Int, x: Int, y: Int, tileSize: Int = 256): ByteArray {
+fun generateTileRgba(collection: ElevationSampler, zoom: Int, x: Int, y: Int, tileSize: Int = 256): ByteArray {
     val sampleCount = tileSize * tileSize
     val lon = DoubleArray(sampleCount)
     val lat = DoubleArray(sampleCount)
@@ -32,7 +32,7 @@ fun generateTileRgba(collection: HgtCollection, zoom: Int, x: Int, y: Int, tileS
     return pixels
 }
 
-fun generateTilePng(collection: HgtCollection, zoom: Int, x: Int, y: Int, tileSize: Int = 256): ByteArray =
+fun generateTilePng(collection: ElevationSampler, zoom: Int, x: Int, y: Int, tileSize: Int = 256): ByteArray =
     writePngRgba(tileSize, tileSize, generateTileRgba(collection, zoom, x, y, tileSize))
 
 fun countXyzTiles(bounds: Bounds, minZoom: Int, maxZoom: Int): Int = (minZoom..maxZoom).sumOf { countTilesForBounds(bounds, it) }
