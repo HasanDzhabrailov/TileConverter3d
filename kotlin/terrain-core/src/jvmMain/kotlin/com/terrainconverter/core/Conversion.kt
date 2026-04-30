@@ -22,6 +22,7 @@ data class ConversionOptions(
     val encoding: String = "mapbox",
     val name: String = "terrain-dem",
     val workers: Int = DEFAULT_WORKERS,
+    val progress: ((String) -> Unit)? = null,
 )
 
 data class ConversionResult(
@@ -46,14 +47,27 @@ private fun renderTiles(
     maxZoom: Int,
     tileSize: Int,
     workers: Int,
+    totalTiles: Int,
+    progress: ((String) -> Unit)?,
     consume: (Int, Int, Int, ByteArray) -> Unit,
 ) {
     val normalizedWorkers = workers.coerceAtLeast(1)
+    val progressStep = if (totalTiles <= 0) 1 else maxOf(1, totalTiles / 20)
+    var completed = 0
+
+    fun onTileRendered() {
+        completed += 1
+        if (progress != null && (completed == 1 || completed == totalTiles || completed % progressStep == 0)) {
+            progress("[CONVERT] Rendered $completed/$totalTiles tiles")
+        }
+    }
+
     val tiles = generateXyzTiles(bounds, minZoom, maxZoom).iterator()
     if (normalizedWorkers <= 1) {
         while (tiles.hasNext()) {
             val (zoom, x, y) = tiles.next()
             consume(zoom, x, y, generateTilePng(collection, zoom, x, y, tileSize))
+            onTileRendered()
         }
         return
     }
@@ -83,6 +97,7 @@ private fun renderTiles(
             val (tile, pngData) = completion.take().get()
             pending -= 1
             consume(tile.first, tile.second, tile.third, pngData)
+            onTileRendered()
             while (pending < maxPending && submitNext()) {
             }
         }
@@ -94,10 +109,13 @@ private fun renderTiles(
 fun runConversion(options: ConversionOptions): ConversionResult {
     validateZoomRange(options.minZoom, options.maxZoom)
     val inputPaths = validateInputs(options.inputs)
+    options.progress?.invoke("[CONVERT] Validated ${inputPaths.size} input file(s)")
     val collection = loadOnDemandHgtSampler(inputPaths)
+    options.progress?.invoke("[CONVERT] Prepared on-demand HGT sampler")
     val bounds = resolveBounds(options.bbox, collection)
     val tileCount = countXyzTiles(bounds, options.minZoom, options.maxZoom)
     val tileSize = options.tileSize.coerceAtLeast(1)
+    options.progress?.invoke("[CONVERT] Resolved bounds and queued $tileCount tile(s)")
 
     MbtilesWriter(options.outputMbtiles).use { writer ->
         writer.writeMetadata(
@@ -111,7 +129,7 @@ fun runConversion(options: ConversionOptions): ConversionResult {
                 "maxzoom" to options.maxZoom.toString(),
             )
         )
-        renderTiles(collection, bounds, options.minZoom, options.maxZoom, tileSize, options.workers) { zoom, x, y, pngData ->
+        renderTiles(collection, bounds, options.minZoom, options.maxZoom, tileSize, options.workers, tileCount, options.progress) { zoom, x, y, pngData ->
             writer.writeTile(zoom, x, y, pngData)
             writeTileFile(options.tileRoot, zoom, x, y, pngData)
         }

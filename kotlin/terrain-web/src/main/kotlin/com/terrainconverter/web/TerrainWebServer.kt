@@ -767,6 +767,7 @@ private suspend fun runConversionJob(request: ConversionRequest): ConversionOutc
             tileSize = request.options.tileSize,
             scheme = request.options.scheme,
             encoding = request.options.encoding,
+            progress = if (request.verboseLogging) request.log else null,
         )
     )
     val conversionTime = System.currentTimeMillis() - conversionStart

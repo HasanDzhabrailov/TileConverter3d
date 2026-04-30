@@ -26,8 +26,11 @@ private class LazyHgtSampler(
     descriptors: List<HgtTileDescriptor>,
     cacheEntries: Int,
 ) : ElevationSampler {
+    private data class ThreadLocalTile(val key: Pair<Int, Int>, val tile: HgtTile)
+
     private val tileMap = descriptors.associateBy { Pair(it.south, it.west) }
     private val cache = TileCache(cacheEntries.coerceAtLeast(1))
+    private val threadLocalTile = ThreadLocal<ThreadLocalTile?>()
 
     override val bounds: Bounds = unionBounds(descriptors.map { it.extent })
 
@@ -36,13 +39,18 @@ private class LazyHgtSampler(
             return null
         }
         val key = Pair(floor(lat).toInt(), floor(lon).toInt())
+        val cached = threadLocalTile.get()
+        if (cached != null && cached.key == key) {
+            return cached.tile.sampleBilinear(lon, lat)
+        }
         val descriptor = tileMap[key] ?: return null
         val tile = cache.getOrLoad(key) { readHgt(descriptor.path) }
+        threadLocalTile.set(ThreadLocalTile(key, tile))
         return tile.sampleBilinear(lon, lat)
     }
 }
 
-private const val DEFAULT_HGT_CACHE_SIZE = 8
+private const val DEFAULT_HGT_CACHE_SIZE = 16
 
 fun loadOnDemandHgtSampler(paths: List<Path>, cacheEntries: Int = DEFAULT_HGT_CACHE_SIZE): ElevationSampler {
     val descriptors = paths.sorted().map { path ->
