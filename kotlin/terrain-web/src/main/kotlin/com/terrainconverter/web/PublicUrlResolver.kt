@@ -8,6 +8,8 @@ import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.Collections
 
 fun isUsableHost(host: String?): Boolean = !host.isNullOrBlank() && host !in setOf(".", "0.0.0.0", "localhost", "::", "::1")
@@ -24,6 +26,7 @@ fun resolvePublicHost(requestHost: String): String {
     val configured = System.getenv("TERRAIN_WEB_PUBLIC_HOST")?.trim().orEmpty()
     if (isUsableHost(configured)) return configured
     if (requestHost !in setOf("127.0.0.1", "localhost", "::1") && isUsableHost(requestHost)) return requestHost
+    if (isRunningInContainer()) return requestHost
     runCatching {
         DatagramSocket().use { socket ->
             socket.connect(InetSocketAddress("8.8.8.8", 80))
@@ -42,6 +45,8 @@ fun resolvePublicHost(requestHost: String): String {
     }
     return requestHost
 }
+
+private fun isRunningInContainer(): Boolean = Files.exists(Path.of("/.dockerenv"))
 
 fun requestScheme(call: ApplicationCall): String = call.request.origin.scheme
 
