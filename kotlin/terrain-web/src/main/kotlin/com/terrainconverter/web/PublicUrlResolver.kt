@@ -46,6 +46,44 @@ fun resolvePublicHost(requestHost: String): String {
     return requestHost
 }
 
+fun resolveAllLanHosts(): List<String> {
+    val hosts = mutableListOf<String>()
+    val configured = System.getenv("TERRAIN_WEB_PUBLIC_HOST")?.trim().orEmpty()
+    if (isUsableHost(configured)) {
+        hosts.add(configured)
+        return hosts
+    }
+
+    runCatching {
+        DatagramSocket().use { socket ->
+            socket.connect(InetSocketAddress("8.8.8.8", 80))
+            val address = socket.localAddress.hostAddress
+            if (!address.startsWith("127.") && isUsableHost(address) && isPrivateIpv4(address)) {
+                hosts.add(address)
+            }
+        }
+    }
+
+    (NetworkInterface.getNetworkInterfaces()?.let { Collections.list(it) } ?: emptyList()).forEach { iface ->
+        if (!iface.isUp || iface.isLoopback || iface.isVirtual) return@forEach
+        Collections.list(iface.inetAddresses).filterIsInstance<Inet4Address>().map { it.hostAddress }.forEach { address ->
+            if (!address.startsWith("127.") && isPrivateIpv4(address) && isUsableHost(address) && address !in hosts) {
+                hosts.add(address)
+            }
+        }
+    }
+
+    runCatching {
+        InetAddress.getLocalHost().hostAddress?.let {
+            if (!it.startsWith("127.") && isUsableHost(it) && isPrivateIpv4(it) && it !in hosts) {
+                hosts.add(it)
+            }
+        }
+    }
+
+    return hosts
+}
+
 private fun isRunningInContainer(): Boolean = Files.exists(Path.of("/.dockerenv"))
 
 fun requestScheme(call: ApplicationCall): String = call.request.origin.scheme
@@ -63,24 +101,38 @@ fun publicBaseUrl(scheme: String, requestHost: String, port: Int): String = base
 fun requestBaseUrl(call: ApplicationCall): String = baseUrl(requestScheme(call), call.request.host(), requestPort(call))
 
 fun buildServerInfo(requestHost: String, requestBaseUrl: String, scheme: String, port: Int): ServerInfo {
-    val publicHost = resolvePublicHost(requestHost)
-    val addresses = mutableListOf(
-        ServerAddress(
-            id = "mobile",
-            label = "Mobile / Wi-Fi",
-            host = publicHost,
-            baseUrl = baseUrl(scheme, publicHost, port),
+    val allLanHosts = resolveAllLanHosts()
+    val addresses = mutableListOf<ServerAddress>()
+
+    if (allLanHosts.isNotEmpty()) {
+        addresses += ServerAddress(
+            id = "lan-primary",
+            label = "Wi-Fi / LAN",
+            host = allLanHosts.first(),
+            baseUrl = baseUrl(scheme, allLanHosts.first(), port),
             description = "Use this address from a phone or another device in the same local network.",
-        ),
-        ServerAddress(
-            id = "localhost",
-            label = "This computer",
-            host = "127.0.0.1",
-            baseUrl = baseUrl(scheme, "127.0.0.1", port),
-            description = "Use this address only on the same computer where the server is running.",
-        ),
+        )
+
+        allLanHosts.drop(1).forEachIndexed { index, host ->
+            addresses += ServerAddress(
+                id = "lan-alt-$index",
+                label = "Alternative LAN",
+                host = host,
+                baseUrl = baseUrl(scheme, host, port),
+                description = "Alternative local network address.",
+            )
+        }
+    }
+
+    addresses += ServerAddress(
+        id = "localhost",
+        label = "This computer",
+        host = "127.0.0.1",
+        baseUrl = baseUrl(scheme, "127.0.0.1", port),
+        description = "Use this address only on the same computer where the server is running.",
     )
-    if (requestHost !in setOf(publicHost, "127.0.0.1", "localhost", "::1")) {
+
+    if (requestHost !in allLanHosts && requestHost !in setOf("127.0.0.1", "localhost", "::1")) {
         addresses += ServerAddress(
             id = "request-host",
             label = "Current browser host",
@@ -89,5 +141,6 @@ fun buildServerInfo(requestHost: String, requestBaseUrl: String, scheme: String,
             description = "This is the host from which the current browser opened the UI.",
         )
     }
+
     return ServerInfo(addresses)
 }

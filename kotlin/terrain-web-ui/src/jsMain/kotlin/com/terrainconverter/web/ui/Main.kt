@@ -103,8 +103,46 @@ private fun Dashboard(state: AppState) {
 
 @Composable
 private fun MbtilesCatalogPanel(state: AppState) {
+    val lanAddresses = state.serverAddresses.filter { it.id.startsWith("lan-") }
+    val savedLanSelection = window.localStorage.getItem("terrain-selected-lan")
+    var selectedLanId by remember { mutableStateOf(savedLanSelection ?: "") }
+
+    val activeLanAddress = when {
+        selectedLanId.isNotBlank() -> lanAddresses.find { it.id == selectedLanId }
+        lanAddresses.isNotEmpty() -> lanAddresses.first()
+        else -> null
+    }
+
     Panel("MBTiles server") {
         MbtilesUploadForm(state)
+
+        if (lanAddresses.isNotEmpty()) {
+            Label {
+                Text("Wi-Fi/LAN address for mobile")
+                Select(attrs = {
+                    onChange {
+                        selectedLanId = it.value ?: ""
+                        if (selectedLanId.isBlank()) {
+                            window.localStorage.removeItem("terrain-selected-lan")
+                        } else {
+                            window.localStorage.setItem("terrain-selected-lan", selectedLanId)
+                        }
+                    }
+                }) {
+                    Option(value = "") { Text("Auto (use detected)") }
+                    lanAddresses.forEach { address ->
+                        Option(value = address.id, attrs = {
+                            if (selectedLanId == address.id) attr("selected", "selected")
+                        }) {
+                            Text("${address.host}")
+                        }
+                    }
+                }
+            }
+            P(attrs = { attr("class", "hint") }) {
+                Text("Select the address your phone should use. All copied links will use this address.")
+            }
+        }
 
         H3 {
             Text("Uploaded tilesets")
@@ -132,22 +170,24 @@ private fun MbtilesCatalogPanel(state: AppState) {
                         Small {
                             Text(formatTimestamp(tileset.createdAt))
                         }
-                        val primaryAddress = state.serverAddresses.find { it.id == "mobile" } ?: state.serverAddresses.firstOrNull()
-                        val tileUrl = tileset.publicTileUrlTemplate
-                            ?: primaryAddress?.let { addressScopedUrl(it, tileset.tileUrlTemplate) }
+                        val tileUrl = activeLanAddress?.let { "${it.baseUrl}${tileset.tileUrlTemplate}" }
+                            ?: tileset.publicTileUrlTemplate
                             ?: tileset.tileUrlTemplate
                         Code {
                             Text(ApiClient.absoluteUrl(tileUrl))
                         }
                         Div(attrs = { attr("class", "tile-server-quick-links") }) {
                             CopyButton(ApiClient.absoluteUrl(tileUrl), label = "Copy Tiles")
-                            (tileset.publicMobileStyleUrl ?: primaryAddress?.let { address -> tileset.mobileStyleUrl?.let { addressScopedUrl(address, it) } })?.let {
+                            (activeLanAddress?.let { base -> tileset.mobileStyleUrl?.let { "${base.baseUrl}$it" } }
+                                ?: tileset.publicMobileStyleUrl)?.let {
                                 CopyButton(ApiClient.absoluteUrl(it), label = "Copy Mobile Style")
                             }
-                            (tileset.publicStyleUrl ?: primaryAddress?.let { address -> tileset.styleUrl?.let { addressScopedUrl(address, it) } })?.let {
+                            (activeLanAddress?.let { base -> tileset.styleUrl?.let { "${base.baseUrl}$it" } }
+                                ?: tileset.publicStyleUrl)?.let {
                                 CopyButton(ApiClient.absoluteUrl(it), label = "Copy Style")
                             }
-                            (tileset.publicTilejsonUrl ?: primaryAddress?.let { address -> tileset.tilejsonUrl?.let { addressScopedUrl(address, it) } })?.let {
+                            (activeLanAddress?.let { base -> tileset.tilejsonUrl?.let { "${base.baseUrl}$it" } }
+                                ?: tileset.publicTilejsonUrl)?.let {
                                 CopyButton(ApiClient.absoluteUrl(it), label = "Copy TileJSON")
                             }
                         }
