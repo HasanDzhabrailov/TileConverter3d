@@ -2,6 +2,7 @@ package com.terrainconverter.web.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -103,12 +104,37 @@ private fun Dashboard(state: AppState) {
 
 @Composable
 private fun MbtilesCatalogPanel(state: AppState) {
+    val scope = rememberCoroutineScope()
     val lanAddresses = state.serverAddresses.filter { it.id.startsWith("lan-") }
     val savedLanSelection = window.localStorage.getItem("terrain-selected-lan")
     var selectedLanId by remember { mutableStateOf(savedLanSelection ?: "") }
+    var reachableHosts by remember { mutableStateOf<Set<String>>(emptySet()) }
 
+    // Auto-check which LAN addresses are reachable
+    LaunchedEffect(lanAddresses) {
+        if (lanAddresses.isEmpty()) return@LaunchedEffect
+        
+        val checked = mutableSetOf<String>()
+        lanAddresses.forEach { address ->
+            scope.launch {
+                try {
+                    val healthUrl = "${address.baseUrl}/api/health"
+                    val response = window.fetch(healthUrl).await()
+                    if (response.status == 200.toShort()) {
+                        checked.add(address.id)
+                        reachableHosts = checked.toSet()
+                    }
+                } catch (_: Throwable) {
+                    // Address not reachable
+                }
+            }
+        }
+    }
+
+    // Auto-select first reachable address if none selected
     val activeLanAddress = when {
         selectedLanId.isNotBlank() -> lanAddresses.find { it.id == selectedLanId }
+        reachableHosts.isNotEmpty() -> lanAddresses.find { it.id in reachableHosts }
         lanAddresses.isNotEmpty() -> lanAddresses.first()
         else -> null
     }
@@ -129,18 +155,38 @@ private fun MbtilesCatalogPanel(state: AppState) {
                         }
                     }
                 }) {
-                    Option(value = "") { Text("Auto (use detected)") }
+                    Option(value = "") { 
+                        val autoLabel = if (reachableHosts.isNotEmpty()) {
+                            "Auto (use working)"
+                        } else {
+                            "Auto (use detected)"
+                        }
+                        Text(autoLabel) 
+                    }
                     lanAddresses.forEach { address ->
+                        val isReachable = address.id in reachableHosts
+                        val label = if (isReachable) {
+                            "${address.host} ✓"
+                        } else {
+                            "${address.host} (checking...)"
+                        }
                         Option(value = address.id, attrs = {
                             if (selectedLanId == address.id) attr("selected", "selected")
                         }) {
-                            Text("${address.host}")
+                            Text(label)
                         }
                     }
                 }
             }
             P(attrs = { attr("class", "hint") }) {
-                Text("Select the address your phone should use. All copied links will use this address.")
+                val working = reachableHosts.firstNotNullOfOrNull { id -> 
+                    lanAddresses.find { it.id == id } 
+                }
+                if (working != null) {
+                    Text("Working address detected: ${working.host}. Your phone can connect using this address.")
+                } else {
+                    Text("Select the address your phone should use. All copied links will use this address.")
+                }
             }
         }
 
