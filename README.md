@@ -200,6 +200,14 @@ From the repo root:
 docker compose -f web/docker-compose.yml up --build
 ```
 
+For phone access while running in Docker, open the UI through the computer's actual Wi-Fi/LAN address, for example `http://<computer-lan-ip>:8080`. MBTiles TileJSON and style responses build their tile URLs from the request host, so copied mobile style links use the same address that requested them.
+
+If auto-detection is not suitable for your network, override the public host explicitly:
+
+```bash
+TERRAIN_WEB_PUBLIC_HOST=<computer-lan-ip> docker compose -f web/docker-compose.yml up --build
+```
+
 Compose builds the Kotlin/JS web UI from `kotlin/terrain-web-ui/` and the Kotlin/Ktor backend from `kotlin/terrain-web/`, then serves both on `http://127.0.0.1:8080`.
 The container is considered healthy when `GET /api/health` returns `200 OK`.
 The backend defaults to `JAVA_TOOL_OPTIONS="-Xms512m -Xmx4g"`; override that environment variable if your HGT dataset needs a different heap size.

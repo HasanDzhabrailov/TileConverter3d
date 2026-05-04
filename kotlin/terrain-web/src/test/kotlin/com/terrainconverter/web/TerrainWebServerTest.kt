@@ -30,6 +30,7 @@ import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class TerrainWebServerTest {
@@ -216,6 +217,35 @@ class TerrainWebServerTest {
         val tileResponse = client.get("/api/mbtiles/$tilesetId/0/0/0.png")
         assertEquals(200, tileResponse.status.value)
         assertTrue(tileResponse.readBytes().contentEquals(PNG_BYTES))
+    }
+
+    @Test
+    fun mbtilesDocumentsUseCurrentRequestHost() = testApplication {
+        val tempDir = Files.createTempDirectory("terrain-web-test-")
+        application { terrainWebModule(testDependencies(tempDir)) }
+        val uploadHost = "upload.internal"
+        val requestHost = "phone.local"
+        val dockerClient = createClient { defaultRequest { header(HttpHeaders.Host, uploadHost) } }
+        val mobileClient = createClient { defaultRequest { header(HttpHeaders.Host, requestHost) } }
+        val response = dockerClient.post("/api/mbtiles") {
+            setBody(
+                MultiPartFormDataContent(
+                    formData {
+                        append("source_type", "raster")
+                        append("mbtiles", buildMbtilesBytes(tempDir), Headers.build {
+                            append(HttpHeaders.ContentDisposition, "filename=sample.mbtiles")
+                            append(HttpHeaders.ContentType, ContentType.Application.OctetStream.toString())
+                        })
+                    }
+                )
+            )
+        }
+        val tilesetId = json.parseToJsonElement(response.bodyAsText()).jsonObject["id"]!!.jsonPrimitive.content
+
+        val style = mobileClient.get("/api/mbtiles/$tilesetId/style").bodyAsText()
+
+        assertTrue(style.contains("http://$requestHost/api/mbtiles/$tilesetId/{z}/{x}/{y}.png"))
+        assertFalse(style.contains("http://$uploadHost/api/mbtiles/$tilesetId/{z}/{x}/{y}.png"))
     }
 
     @Test

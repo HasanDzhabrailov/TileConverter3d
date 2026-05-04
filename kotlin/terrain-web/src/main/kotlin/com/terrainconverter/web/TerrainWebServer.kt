@@ -246,7 +246,8 @@ fun Application.terrainWebModule(dependencies: AppDependencies = AppDependencies
         // MBTiles API
         get("/api/mbtiles") {
             try {
-                call.respond(state.tilesets.values.toList())
+                val baseUrl = publicBaseUrl(requestScheme(call), call.request.host(), requestPort(call))
+                call.respond(state.tilesets.values.map { it.withPublicBaseUrl(baseUrl) })
             } catch (e: Exception) {
                 e.printStackTrace()
                 call.respond(HttpStatusCode.InternalServerError, ErrorPayload("Failed to list tilesets: ${e.message}"))
@@ -293,7 +294,8 @@ fun Application.terrainWebModule(dependencies: AppDependencies = AppDependencies
         get("/api/mbtiles/{tilesetId}") {
             val tileset = state.tilesets[call.parameters["tilesetId"]!!]
                 ?: return@get call.respond(HttpStatusCode.NotFound, ErrorPayload("MBTiles tileset not found"))
-            call.respond(tileset)
+            val baseUrl = publicBaseUrl(requestScheme(call), call.request.host(), requestPort(call))
+            call.respond(tileset.withPublicBaseUrl(baseUrl))
         }
 
         get("/api/mbtiles/{tilesetId}/metadata") {
@@ -307,19 +309,22 @@ fun Application.terrainWebModule(dependencies: AppDependencies = AppDependencies
         get("/api/mbtiles/{tilesetId}/tilejson") {
             val tileset = state.tilesets[call.parameters["tilesetId"]!!]
                 ?: return@get call.respond(HttpStatusCode.NotFound, ErrorPayload("MBTiles tileset not found"))
-            call.respondText(renderPrettyJson(buildMbtilesTilejson(tileset)), ContentType.Application.Json)
+            val baseUrl = publicBaseUrl(requestScheme(call), call.request.host(), requestPort(call))
+            call.respondText(renderPrettyJson(buildMbtilesTilejson(tileset.withPublicBaseUrl(baseUrl))), ContentType.Application.Json)
         }
 
         get("/api/mbtiles/{tilesetId}/style") {
             val tileset = state.tilesets[call.parameters["tilesetId"]!!]
                 ?: return@get call.respond(HttpStatusCode.NotFound, ErrorPayload("MBTiles tileset not found"))
-            call.respondText(renderPrettyJson(buildMbtilesStyle(tileset)), ContentType.Application.Json)
+            val baseUrl = publicBaseUrl(requestScheme(call), call.request.host(), requestPort(call))
+            call.respondText(renderPrettyJson(buildMbtilesStyle(tileset.withPublicBaseUrl(baseUrl))), ContentType.Application.Json)
         }
 
         get("/api/mbtiles/{tilesetId}/style-mobile") {
             val tileset = state.tilesets[call.parameters["tilesetId"]!!]
                 ?: return@get call.respond(HttpStatusCode.NotFound, ErrorPayload("MBTiles tileset not found"))
-            call.respondText(renderPrettyJson(buildMbtilesMobileStyle(tileset)), ContentType.Application.Json)
+            val baseUrl = publicBaseUrl(requestScheme(call), call.request.host(), requestPort(call))
+            call.respondText(renderPrettyJson(buildMbtilesMobileStyle(tileset.withPublicBaseUrl(baseUrl))), ContentType.Application.Json)
         }
 
         get("/api/mbtiles/{tilesetId}/{z}/{x}/{y}.{ext}") {

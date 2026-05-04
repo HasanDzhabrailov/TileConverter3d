@@ -48,6 +48,13 @@ fun buildMbtilesTilesetPayload(
     )
 }
 
+fun MBTilesTileset.withPublicBaseUrl(publicBaseUrl: String): MBTilesTileset = copy(
+    publicTileUrlTemplate = "$publicBaseUrl$tileUrlTemplate",
+    publicTilejsonUrl = tilejsonUrl?.let { "$publicBaseUrl$it" },
+    publicStyleUrl = styleUrl?.let { "$publicBaseUrl$it" },
+    publicMobileStyleUrl = mobileStyleUrl?.let { "$publicBaseUrl$it" },
+)
+
 fun buildMbtilesTilejson(tileset: MBTilesTileset): Map<String, Any?> {
     val bounds = tileset.bounds ?: BBox(-180.0, -85.05112878, 180.0, 85.05112878)
     val minzoom = tileset.minzoom ?: 0

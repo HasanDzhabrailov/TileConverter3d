@@ -133,19 +133,21 @@ private fun MbtilesCatalogPanel(state: AppState) {
                             Text(formatTimestamp(tileset.createdAt))
                         }
                         val primaryAddress = state.serverAddresses.find { it.id == "mobile" } ?: state.serverAddresses.firstOrNull()
-                        val tileUrl = primaryAddress?.let { addressScopedUrl(it, tileset.tileUrlTemplate) } ?: tileset.publicTileUrlTemplate
+                        val tileUrl = tileset.publicTileUrlTemplate
+                            ?: primaryAddress?.let { addressScopedUrl(it, tileset.tileUrlTemplate) }
+                            ?: tileset.tileUrlTemplate
                         Code {
                             Text(ApiClient.absoluteUrl(tileUrl))
                         }
                         Div(attrs = { attr("class", "tile-server-quick-links") }) {
                             CopyButton(ApiClient.absoluteUrl(tileUrl), label = "Copy Tiles")
-                            (primaryAddress?.let { address -> tileset.mobileStyleUrl?.let { addressScopedUrl(address, it) } } ?: tileset.publicMobileStyleUrl)?.let {
+                            (tileset.publicMobileStyleUrl ?: primaryAddress?.let { address -> tileset.mobileStyleUrl?.let { addressScopedUrl(address, it) } })?.let {
                                 CopyButton(ApiClient.absoluteUrl(it), label = "Copy Mobile Style")
                             }
-                            (primaryAddress?.let { address -> tileset.styleUrl?.let { addressScopedUrl(address, it) } } ?: tileset.publicStyleUrl)?.let {
+                            (tileset.publicStyleUrl ?: primaryAddress?.let { address -> tileset.styleUrl?.let { addressScopedUrl(address, it) } })?.let {
                                 CopyButton(ApiClient.absoluteUrl(it), label = "Copy Style")
                             }
-                            (primaryAddress?.let { address -> tileset.tilejsonUrl?.let { addressScopedUrl(address, it) } } ?: tileset.publicTilejsonUrl)?.let {
+                            (tileset.publicTilejsonUrl ?: primaryAddress?.let { address -> tileset.tilejsonUrl?.let { addressScopedUrl(address, it) } })?.let {
                                 CopyButton(ApiClient.absoluteUrl(it), label = "Copy TileJSON")
                             }
                         }
@@ -603,7 +605,7 @@ private fun MbtilesPreviewPanel(tileset: MbtilesTileset?, previewBase: PreviewBa
     Panel("MBTiles preview") {
         Div(attrs = { attr("class", "preview-toolbar") }) {
             Label {
-                Text("Tilt: ${if (tileset.sourceType == SourceType.RASTER_DEM) "$pitch°" else "0°"}")
+                Text("Наклон камеры: ${if (tileset.sourceType == SourceType.RASTER_DEM) "$pitch°" else "0°"}")
                 Input(type = InputType.Range, attrs = {
                     value(if (tileset.sourceType == SourceType.RASTER_DEM) pitch.toString() else "0")
                     attr("min", "0")
@@ -612,6 +614,9 @@ private fun MbtilesPreviewPanel(tileset: MbtilesTileset?, previewBase: PreviewBa
                     onInput {
                         val value = it.value?.toString()?.toIntOrNull() ?: return@onInput
                         pitch = value
+                        if (tileset.sourceType == SourceType.RASTER_DEM) {
+                            mapInstance?.setPitch(value.toDouble())
+                        }
                     }
                 })
             }
@@ -711,7 +716,7 @@ private fun TerrainPreviewPanel(job: Job?, previewBase: PreviewBase) {
     Panel("Preview") {
         Div(attrs = { attr("class", "preview-toolbar") }) {
             Label {
-                Text("Tilt: $pitch°")
+                Text("Наклон камеры: $pitch°")
                 Input(type = InputType.Range, attrs = {
                     value(pitch.toString())
                     attr("min", "0")
@@ -719,6 +724,7 @@ private fun TerrainPreviewPanel(job: Job?, previewBase: PreviewBase) {
                     onInput {
                         val value = it.value?.toString()?.toIntOrNull() ?: return@onInput
                         pitch = value
+                        mapInstance?.setPitch(value.toDouble())
                     }
                 })
             }
