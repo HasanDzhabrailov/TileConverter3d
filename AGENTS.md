@@ -10,7 +10,7 @@
 - `kotlin/terrain-core/`: shared KMP/JVM terrain logic, HGT parsing, sampling, Terrain-RGB, PNG, MBTiles, TileJSON, style generation.
 - `kotlin/terrain-cli/`: Kotlin CLI contract and conversion entrypoint.
 - `kotlin/terrain-web/`: Ktor backend, jobs, WebSocket events, artifact routes, tile serving, and uploaded MBTiles support.
-- `web/frontend/src/`: React/Vite UI for uploads, job status/logs, preview, downloads, and MBTiles browsing.
+- `kotlin/terrain-web-ui/`: Kotlin/JS Compose UI for uploads, job status/logs, preview, downloads, and MBTiles browsing.
 - `web/docker-compose.yml`: Compose entrypoint for the web stack.
 - `docs/kotlin-migration-plan.md`: canonical saved migration plan that later sessions should follow once created.
 - `docs/kotlin-migration-status.md`: canonical saved stage status that later sessions should update and follow.
@@ -25,8 +25,8 @@
 - Run backend tests: `gradle :terrain-web:test`
 - Run backend locally: `gradle :terrain-web:run`
 - Run CLI locally: `gradle :terrain-cli:run --args="<hgt file or dir> --minzoom 8 --maxzoom 12"`
-- Frontend dev: `npm install` then `npm run dev` from `web/frontend/`
-- Frontend build: `npm run build` from `web/frontend/`
+- Frontend dev: `gradle -p kotlin/terrain-web-ui jsBrowserDevelopmentRun`
+- Frontend build: `gradle -p kotlin/terrain-web-ui syncFrontendDist`
 - Compose web stack: `docker compose -f web/docker-compose.yml up --build`
 
 # Constraints
@@ -47,6 +47,6 @@
 - Core changes: run `gradle :terrain-core:test`.
 - CLI changes: run `gradle :terrain-cli:test`.
 - Backend changes: run `gradle :terrain-web:test`.
-- Frontend changes: run `npm run build` in `web/frontend/`.
-- Backend changes that affect UI flows should still be checked against the existing Vite app.
+- Frontend changes: run `gradle -p kotlin/terrain-web-ui syncFrontendDist`.
+- Backend changes that affect UI flows should still be checked against the Kotlin web UI.
 - Validate behavior on Windows, Linux, and macOS.

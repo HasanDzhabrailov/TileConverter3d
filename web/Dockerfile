@@ -1,10 +1,7 @@
-FROM node:20-bookworm AS frontend-build
-WORKDIR /app/web/frontend
-COPY web/frontend/package.json web/frontend/package-lock.json web/frontend/tsconfig.json web/frontend/vite.config.ts ./
-RUN npm ci
-COPY web/frontend/index.html ./
-COPY web/frontend/src ./src
-RUN npm run build
+FROM gradle:8.7-jdk21 AS frontend-build
+WORKDIR /app
+COPY kotlin/terrain-web-ui ./kotlin/terrain-web-ui
+RUN gradle -p kotlin/terrain-web-ui syncFrontendDist --no-daemon
 
 FROM gradle:8.7-jdk21 AS kotlin-build
 WORKDIR /app

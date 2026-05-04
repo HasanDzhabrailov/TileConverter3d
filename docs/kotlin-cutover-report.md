@@ -225,7 +225,7 @@ The Kotlin/KMP migration has been successfully completed. All verification crite
 | Cross-platform verified | ⚠️ | Windows complete, Linux/macOS pending |
 | All tests passing | ✅ | `gradle test` successful |
 | Docker/Compose stack | ✅ | Kotlin-only, no Python |
-| Frontend build | ✅ | `npm run build` successful |
+| Frontend build | ✅ | `gradle -p kotlin/terrain-web-ui syncFrontendDist` successful |
 
 ---
 

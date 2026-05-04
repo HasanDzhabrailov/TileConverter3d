@@ -493,7 +493,7 @@ Verification before work:
 Verification after work:
 
 - run `gradle :terrain-web:test`
-- run `npm run build` in `web/frontend/` if backend/UI flow code moved in a way that can affect integration
+- run `gradle -p kotlin/terrain-web-ui syncFrontendDist` if backend/UI flow code moved in a way that can affect integration
 - confirm no external route or payload changed
 
 ## High-Risk Parity Areas
@@ -586,12 +586,12 @@ After each phase:
 - core changes: run `gradle :terrain-core:test`
 - CLI changes: run `gradle :terrain-cli:test`
 - backend changes: run `gradle :terrain-web:test`
-- frontend-impacting backend changes: run `npm run build` in `web/frontend/`
+- frontend-impacting backend changes: run `gradle -p kotlin/terrain-web-ui syncFrontendDist`
 
 End-of-stage verification when a phase is complete:
 
 - run `gradle test`
-- run `npm run build` in `web/frontend/`
+- run `gradle -p kotlin/terrain-web-ui syncFrontendDist`
 - perform manual smoke checks for:
   - HGT upload
   - job start
@@ -698,7 +698,7 @@ Do not declare the migration complete until all of the following are true:
 
 4. Verification
    - `gradle test` passes
-   - `npm run build` passes in `web/frontend/`
+   - `gradle -p kotlin/terrain-web-ui syncFrontendDist` passes
    - parity fixtures and integration tests pass
    - manual end-to-end workflow passes
 

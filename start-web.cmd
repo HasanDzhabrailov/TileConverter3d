@@ -5,8 +5,8 @@ set "ROOT=%~dp0"
 if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 
 set "BACKEND_PORT=8080"
-set "FRONTEND_PORT=5173"
 set "PUBLIC_HOST=%TERRAIN_WEB_PUBLIC_HOST%"
+set "POWERSHELL=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
 
 where gradle >nul 2>nul
 if errorlevel 1 (
@@ -15,34 +15,11 @@ if errorlevel 1 (
   exit /b 1
 )
 
-where node >nul 2>nul
-if errorlevel 1 (
-  echo Node.js not found in PATH.
-  echo Install Node 18+ and try again.
-  exit /b 1
-)
-
-where npm >nul 2>nul
-if errorlevel 1 (
-  echo npm not found in PATH.
-  exit /b 1
-)
-
-for /f %%v in ('node -p "process.versions.node.split('.')[0]"') do set "NODE_MAJOR=%%v"
-if "%NODE_MAJOR%"=="" (
-  echo Failed to detect Node.js version.
-  exit /b 1
-)
-if %NODE_MAJOR% LSS 18 (
-  echo Node.js 18+ is required. Current major version: %NODE_MAJOR%
-  exit /b 1
-)
-
 if "%PUBLIC_HOST%"=="" for /f "tokens=2 delims=: " %%h in ('ipconfig ^| findstr /R /C:"IPv4.*172\.20\."') do set "PUBLIC_HOST=%%h"
 if "%PUBLIC_HOST%"=="" for /f "tokens=2 delims=: " %%h in ('ipconfig ^| findstr /R /C:"IPv4.*192\.168\."') do set "PUBLIC_HOST=%%h"
 if "%PUBLIC_HOST%"=="" for /f "tokens=2 delims=: " %%h in ('ipconfig ^| findstr /R /C:"IPv4.*10\."') do set "PUBLIC_HOST=%%h"
 if "%PUBLIC_HOST%"=="" for /f "tokens=2 delims=: " %%h in ('ipconfig ^| findstr /R /C:"IPv4.*172\.(1[6-9]\|2[0-9]\|3[0-1])\."') do set "PUBLIC_HOST=%%h"
-if "%PUBLIC_HOST%"=="" for /f %%h in ('powershell -NoProfile -Command "$c = New-Object System.Net.Sockets.UdpClient; $c.Connect(''8.8.8.8'',80); ($c.Client.LocalEndPoint).Address.IPAddressToString; $c.Close()" 2^>nul') do set "PUBLIC_HOST=%%h"
+if "%PUBLIC_HOST%"=="" for /f %%h in ('"%POWERSHELL%" -NoProfile -Command "$c = New-Object System.Net.Sockets.UdpClient; $c.Connect(''8.8.8.8'',80); ($c.Client.LocalEndPoint).Address.IPAddressToString; $c.Close()" 2^>nul') do set "PUBLIC_HOST=%%h"
 if "%PUBLIC_HOST%"=="." set "PUBLIC_HOST="
 if "%PUBLIC_HOST%"=="0.0.0.0" set "PUBLIC_HOST="
 if "%PUBLIC_HOST%"=="" set "PUBLIC_HOST=172.20.10.2"
@@ -51,45 +28,48 @@ for /f "tokens=* delims= " %%h in ("%PUBLIC_HOST%") do set "PUBLIC_HOST=%%h"
 echo Public host: %PUBLIC_HOST%
 
 call :kill_port_process %BACKEND_PORT% "backend"
-call :kill_port_process %FRONTEND_PORT% "frontend"
 
-echo Starting backend...
-start "Terrain Backend" cmd /k "set TERRAIN_WEB_PUBLIC_HOST=%PUBLIC_HOST% && set TERRAIN_WEB_HOST=0.0.0.0 && set TERRAIN_WEB_PORT=%BACKEND_PORT% && cd /d "%ROOT%" && gradle :terrain-web:run"
-
-echo Waiting for backend health check...
-set "BACKEND_READY="
-for /l %%i in (1,1,60) do (
-  powershell -NoProfile -Command "try { $r = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:%BACKEND_PORT%/api/health -TimeoutSec 1; if ($r.StatusCode -eq 200) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>nul
-  if not errorlevel 1 (
-    set "BACKEND_READY=1"
-    goto backend_ready
-  )
-  timeout /t 1 /nobreak >nul
-)
-
-:backend_ready
-if not defined BACKEND_READY (
-  echo Backend did not become ready within 60 seconds.
-  echo Check the "Terrain Backend" window for install or startup errors.
+echo Building Kotlin web UI assets...
+pushd "%ROOT%"
+call gradle -p kotlin/terrain-web-ui syncFrontendDist
+if errorlevel 1 (
+  popd
+  echo Kotlin web UI build failed.
   exit /b 1
 )
+popd
 
-echo Starting frontend...
-start "Terrain Frontend" cmd /k "cd /d "%ROOT%\web\frontend" && npm install && npm run dev -- --host 0.0.0.0 --port %FRONTEND_PORT%"
+echo Building backend distribution...
+pushd "%ROOT%"
+call gradle :terrain-web:installDist
+if errorlevel 1 (
+  popd
+  echo Backend build failed.
+  exit /b 1
+)
+popd
 
-echo Opening application in browser...
-start "" "http://localhost:5173/"
+echo Starting backend...
+if not exist "%ROOT%\web\data" mkdir "%ROOT%\web\data"
+set "TERRAIN_WEB_PUBLIC_HOST=%PUBLIC_HOST%"
+set "TERRAIN_WEB_HOST=0.0.0.0"
+set "TERRAIN_WEB_PORT=%BACKEND_PORT%"
+set "TERRAIN_WEB_STORAGE_ROOT=%ROOT%\web\data"
+set "TERRAIN_WEB_FRONTEND_DIST=%ROOT%\web\frontend\dist"
+
+echo Opening application in browser after backend starts...
+start "Open Terrain Web" "%POWERSHELL%" -NoProfile -Command "Start-Sleep -Seconds 5; Start-Process 'http://localhost:%BACKEND_PORT%/'"
 
 echo.
-echo Backend:  http://127.0.0.1:%BACKEND_PORT%
+echo Backend:  http://localhost:%BACKEND_PORT%
 echo Backend LAN: http://%PUBLIC_HOST%:%BACKEND_PORT%
-echo Frontend: http://127.0.0.1:%FRONTEND_PORT%
+echo Web UI:   http://localhost:%BACKEND_PORT%
 echo.
-echo If frontend preview should use the bundled backend UI instead, open:
-echo http://127.0.0.1:%BACKEND_PORT%
+echo Keep this window open while using Terrain Web. Press Ctrl+C to stop.
 
-endlocal
-exit /b 0
+call "%ROOT%\kotlin\terrain-web\build\install\terrain-web\bin\terrain-web.bat"
+set "SERVER_EXIT=%ERRORLEVEL%"
+endlocal & exit /b %SERVER_EXIT%
 
 :kill_port_process
 set "TARGET_PORT=%~1"

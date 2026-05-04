@@ -16,11 +16,6 @@ Terrain data is produced as a separate `raster-dem` source. The project does not
 - JDK 21
 - Gradle in PATH (`gradle` command). This repo does not include `gradlew`.
 
-For frontend development:
-
-- Node.js 18+
-- npm
-
 ## Project Structure
 
 ```
@@ -28,8 +23,9 @@ kotlin/
   terrain-core/    Shared Kotlin conversion logic (KMP)
   terrain-cli/     Kotlin CLI application
   terrain-web/     Kotlin/Ktor backend application
+  terrain-web-ui/  Kotlin/JS Compose web UI
 web/
-  frontend/        React/Vite UI sources
+  frontend/dist/   Generated frontend assets served by Ktor
   docker-compose.yml
   Dockerfile
 docs/
@@ -204,7 +200,7 @@ From the repo root:
 docker compose -f web/docker-compose.yml up --build
 ```
 
-Compose builds the frontend bundle from `web/frontend/` and the Kotlin/Ktor backend from `kotlin/terrain-web/`, then serves both on `http://127.0.0.1:8080`.
+Compose builds the Kotlin/JS web UI from `kotlin/terrain-web-ui/` and the Kotlin/Ktor backend from `kotlin/terrain-web/`, then serves both on `http://127.0.0.1:8080`.
 The container is considered healthy when `GET /api/health` returns `200 OK`.
 The backend defaults to `JAVA_TOOL_OPTIONS="-Xms512m -Xmx4g"`; override that environment variable if your HGT dataset needs a different heap size.
 
@@ -216,28 +212,21 @@ GET http://127.0.0.1:8080/api/health
 
 Persistent job data is stored in the named Docker volume `terrain-web-data`, mounted at `/app/web/data` inside the container.
 
-## Frontend Development
+## Web UI Development
 
-The frontend is a React/Vite UI bundled into the Compose-managed web stack.
+The supported web UI is Kotlin/JS with Compose Multiplatform HTML. Node/Vite/React are not part of the supported workflow after cutover.
 
-From `web/frontend/`:
+Build and sync the production UI assets served by Ktor:
 
 ```bash
-npm install
-npm run dev
+gradle -p kotlin/terrain-web-ui syncFrontendDist
+gradle :terrain-web:run
 ```
 
-Dev server: `http://127.0.0.1:5173`
-
-Proxies:
-
-- `/api` → `http://127.0.0.1:8080`
-- `/ws` → `ws://127.0.0.1:8080`
-
-Build the production bundle:
+For backend-connected development, use the production bundle sync above so API and WebSocket calls stay same-origin. The standalone Kotlin/JS development server is only useful for UI-only work unless you add a local proxy for `/api` and `/ws`:
 
 ```bash
-npm run build
+gradle -p kotlin/terrain-web-ui jsBrowserDevelopmentRun
 ```
 
 When `web/frontend/dist` exists, the Ktor backend serves it at `/`.
