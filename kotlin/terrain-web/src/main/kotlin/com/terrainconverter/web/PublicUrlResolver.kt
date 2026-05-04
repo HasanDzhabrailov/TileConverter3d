@@ -26,7 +26,7 @@ fun resolvePublicHost(requestHost: String): String {
     val configured = System.getenv("TERRAIN_WEB_PUBLIC_HOST")?.trim().orEmpty()
     if (isUsableHost(configured)) return configured
     if (requestHost !in setOf("127.0.0.1", "localhost", "::1") && isUsableHost(requestHost) && !isDockerIp(requestHost)) return requestHost
-    if (isRunningInContainer()) return requestHost
+    // Don't return early in container - try to find LAN IP through network interfaces
     runCatching {
         DatagramSocket().use { socket ->
             socket.connect(InetSocketAddress("8.8.8.8", 80))

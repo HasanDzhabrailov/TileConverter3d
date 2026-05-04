@@ -55,7 +55,7 @@ val syncFrontendDist by tasks.registering(GradleBuild::class) {
 tasks.named<JavaExec>("run") {
     dependsOn(syncFrontendDist)
     workingDir = rootProject.projectDir
-    environment("TERRAIN_WEB_FRONTEND_DIST", rootProject.file("web/frontend/dist").absolutePath)
+    environment("TERRAIN_WEB_FRONTEND_DIST", rootProject.file("kotlin/terrain-web-ui/build/frontendDist").absolutePath)
 }
 
 tasks.named("installDist") {

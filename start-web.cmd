@@ -50,12 +50,12 @@ if errorlevel 1 (
 popd
 
 echo Starting backend...
-if not exist "%ROOT%\web\data" mkdir "%ROOT%\web\data"
+if not exist "%ROOT%\data" mkdir "%ROOT%\data"
 set "TERRAIN_WEB_PUBLIC_HOST=%PUBLIC_HOST%"
 set "TERRAIN_WEB_HOST=0.0.0.0"
 set "TERRAIN_WEB_PORT=%BACKEND_PORT%"
-set "TERRAIN_WEB_STORAGE_ROOT=%ROOT%\web\data"
-set "TERRAIN_WEB_FRONTEND_DIST=%ROOT%\web\frontend\dist"
+set "TERRAIN_WEB_STORAGE_ROOT=%ROOT%\data"
+set "TERRAIN_WEB_FRONTEND_DIST=%ROOT%\kotlin\terrain-web-ui\build\frontendDist"
 
 echo Opening application in browser after backend starts...
 start "Open Terrain Web" "%POWERSHELL%" -NoProfile -Command "Start-Sleep -Seconds 5; Start-Process 'http://localhost:%BACKEND_PORT%/'"

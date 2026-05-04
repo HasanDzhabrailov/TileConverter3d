@@ -242,22 +242,18 @@
     {
       "id": "uploaded-mbtiles-binary-integrity",
       "area": "uploaded-mbtiles",
-      "baseline_source": "deterministic-generation-script",
-      "inputs": [
-        "inputs/mbtiles/uploads/generate_fixtures.py"
-      ],
+      "baseline_source": "committed-binary-fixtures",
+      "inputs": [],
       "outputs": [
         "inputs/mbtiles/uploads/raster.mbtiles",
         "inputs/mbtiles/uploads/raster-dem.mbtiles",
         "inputs/mbtiles/uploads/malformed-metadata.mbtiles",
         "inputs/mbtiles/uploads/missing-metadata.mbtiles"
       ],
-      "comparison": "byte-equal-or-regenerate",
+      "comparison": "byte-equal",
       "severity": "high",
-      "normalization": [
-        "regenerate-via-script-when-changing"
-      ],
-      "notes": "MBTiles binary fixtures can be regenerated via Python script. These files should remain stable unless the test requirements change."
+      "normalization": [],
+      "notes": "MBTiles binary fixtures are committed directly. These files should remain stable unless the test requirements change."
     }
   ]
 }

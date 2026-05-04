@@ -15,11 +15,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=kotlin-build /app/kotlin/terrain-web/build/install/terrain-web ./terrain-web
-COPY --from=frontend-build /app/web/frontend/dist ./web/frontend/dist
+COPY --from=frontend-build /app/kotlin/terrain-web-ui/build/frontendDist ./terrain-web-ui
 EXPOSE 8080
 ENV TERRAIN_WEB_HOST=0.0.0.0
 ENV TERRAIN_WEB_PORT=8080
-ENV TERRAIN_WEB_STORAGE_ROOT=/app/web/data
-ENV TERRAIN_WEB_FRONTEND_DIST=/app/web/frontend/dist
+ENV TERRAIN_WEB_STORAGE_ROOT=/app/data
+ENV TERRAIN_WEB_FRONTEND_DIST=/app/terrain-web-ui
 ENV JAVA_TOOL_OPTIONS="-Xms512m -Xmx4g"
 CMD ["/app/terrain-web/bin/terrain-web"]

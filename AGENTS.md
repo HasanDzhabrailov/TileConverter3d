@@ -11,7 +11,7 @@
 - `kotlin/terrain-cli/`: Kotlin CLI contract and conversion entrypoint.
 - `kotlin/terrain-web/`: Ktor backend, jobs, WebSocket events, artifact routes, tile serving, and uploaded MBTiles support.
 - `kotlin/terrain-web-ui/`: Kotlin/JS Compose UI for uploads, job status/logs, preview, downloads, and MBTiles browsing.
-- `web/docker-compose.yml`: Compose entrypoint for the web stack.
+- `deploy/docker/docker-compose.yml`: Compose entrypoint for the web stack.
 - `docs/kotlin-migration-plan.md`: canonical saved migration plan that later sessions should follow once created.
 - `docs/kotlin-migration-status.md`: canonical saved stage status that later sessions should update and follow.
 - `docs/kotlin-session-runbook.md`: canonical command order for multi-session Kotlin/KMP migration work.
@@ -27,7 +27,7 @@
 - Run CLI locally: `gradle :terrain-cli:run --args="<hgt file or dir> --minzoom 8 --maxzoom 12"`
 - Frontend dev: `gradle -p kotlin/terrain-web-ui jsBrowserDevelopmentRun`
 - Frontend build: `gradle -p kotlin/terrain-web-ui syncFrontendDist`
-- Compose web stack: `docker compose -f web/docker-compose.yml up --build`
+- Compose web stack: `docker compose -f deploy/docker/docker-compose.yml up --build`
 
 # Constraints
 
@@ -40,7 +40,7 @@
 - Uploaded `.mbtiles` handling is part of the backend contract, including `source_type` auto-detection and `/style-mobile` for mobile clients.
 - Preserve the backend workflow: upload -> conversion job -> logs/status -> artifacts -> tile serving.
 - No subprocess dependency on Python is allowed. Conversion, MBTiles handling, validation, logging, and serving must run natively through Kotlin.
-- If runtime flow changes, update `README.md`, `web/README.md`, and related docs with concise real commands.
+- If runtime flow changes, update `README.md`, `deploy/docker/README.md`, and related docs with concise real commands.
 
 # Verification
 

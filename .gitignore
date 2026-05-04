@@ -48,26 +48,8 @@ ehthumbs.db
 Thumbs.db
 desktop.ini
 
-# Python (legacy reference)
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-*.egg-info/
-dist/
-*.egg
-.pytest_cache/
-.mypy_cache/
-.dmypy.json
-
-# Node.js / Frontend
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-web/frontend/dist/
+# Kotlin/JS build outputs
+kotlin/terrain-web-ui/build/frontendDist/
 
 # Project-specific generated files
 data/

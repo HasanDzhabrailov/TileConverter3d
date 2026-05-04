@@ -12,16 +12,16 @@ data class Settings(
     val appName: String = "terrain-converter-web",
     val host: String = "0.0.0.0",
     val port: Int = 8080,
-    val storageRoot: Path = Path.of("web", "data"),
-    val frontendDist: Path = Path.of("web", "frontend", "dist"),
+    val storageRoot: Path = Path.of("data"),
+    val frontendDist: Path = Path.of("kotlin", "terrain-web-ui", "build", "frontendDist"),
 ) {
     companion object {
         fun fromEnv(): Settings = Settings(
             appName = System.getenv("TERRAIN_WEB_APP_NAME") ?: "terrain-converter-web",
             host = System.getenv("TERRAIN_WEB_HOST") ?: "0.0.0.0",
             port = (System.getenv("TERRAIN_WEB_PORT") ?: "8080").toInt(),
-            storageRoot = Path.of(System.getenv("TERRAIN_WEB_STORAGE_ROOT") ?: Path.of("web", "data").toString()),
-            frontendDist = Path.of(System.getenv("TERRAIN_WEB_FRONTEND_DIST") ?: Path.of("web", "frontend", "dist").toString()),
+            storageRoot = Path.of(System.getenv("TERRAIN_WEB_STORAGE_ROOT") ?: "data"),
+            frontendDist = Path.of(System.getenv("TERRAIN_WEB_FRONTEND_DIST") ?: Path.of("kotlin", "terrain-web-ui", "build", "frontendDist").toString()),
         )
     }
 }

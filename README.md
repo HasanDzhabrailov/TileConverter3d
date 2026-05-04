@@ -2,6 +2,8 @@
 
 Converts SRTM/HGT elevation tiles into MapLibre-compatible Terrain-RGB outputs.
 
+**Implementation**: Kotlin/KMP only. Python and legacy Node.js frontends have been removed.
+
 Outputs:
 
 - `terrain-rgb.mbtiles` – SQLite database with terrain tiles
@@ -24,13 +26,9 @@ kotlin/
   terrain-cli/     Kotlin CLI application
   terrain-web/     Kotlin/Ktor backend application
   terrain-web-ui/  Kotlin/JS Compose web UI
-web/
-  frontend/dist/   Generated frontend assets served by Ktor
-  docker-compose.yml
-  Dockerfile
-docs/
-  terrain-pipeline.md
-  kotlin-migration-status.md
+deploy/
+  docker/          Docker deployment files
+docs/            Documentation
 ```
 
 ## Build
@@ -181,13 +179,13 @@ TERRAIN_WEB_FRONTEND_DIST
 TERRAIN_WEB_PUBLIC_HOST
 ```
 
-Typical values:
+Typical local values:
 
 ```
 TERRAIN_WEB_HOST=0.0.0.0
 TERRAIN_WEB_PORT=8080
-TERRAIN_WEB_STORAGE_ROOT=web/data
-TERRAIN_WEB_FRONTEND_DIST=web/frontend/dist
+TERRAIN_WEB_STORAGE_ROOT=data
+TERRAIN_WEB_FRONTEND_DIST=kotlin/terrain-web-ui/build/frontendDist
 ```
 
 `TERRAIN_WEB_FRONTEND_DIST` is used only when the directory exists.
@@ -197,7 +195,7 @@ TERRAIN_WEB_FRONTEND_DIST=web/frontend/dist
 From the repo root:
 
 ```bash
-docker compose -f web/docker-compose.yml up --build
+docker compose -f deploy/docker/docker-compose.yml up --build
 ```
 
 For phone access while running in Docker, open the UI through the computer's actual Wi-Fi/LAN address, for example `http://<computer-lan-ip>:8080`. MBTiles TileJSON and style responses build their tile URLs from the request host, so copied mobile style links use the same address that requested them.
@@ -205,7 +203,7 @@ For phone access while running in Docker, open the UI through the computer's act
 If auto-detection is not suitable for your network, override the public host explicitly:
 
 ```bash
-TERRAIN_WEB_PUBLIC_HOST=<computer-lan-ip> docker compose -f web/docker-compose.yml up --build
+TERRAIN_WEB_PUBLIC_HOST=<computer-lan-ip> docker compose -f deploy/docker/docker-compose.yml up --build
 ```
 
 Compose builds the Kotlin/JS web UI from `kotlin/terrain-web-ui/` and the Kotlin/Ktor backend from `kotlin/terrain-web/`, then serves both on `http://127.0.0.1:8080`.
@@ -218,11 +216,11 @@ Health check:
 GET http://127.0.0.1:8080/api/health
 ```
 
-Persistent job data is stored in the named Docker volume `terrain-web-data`, mounted at `/app/web/data` inside the container.
+Persistent job data is stored in the named Docker volume `terrain-web-data`, mounted at `/app/data` inside the container.
 
 ## Web UI Development
 
-The supported web UI is Kotlin/JS with Compose Multiplatform HTML. Node/Vite/React are not part of the supported workflow after cutover.
+The web UI is Kotlin/JS with Compose Multiplatform HTML.
 
 Build and sync the production UI assets served by Ktor:
 
@@ -237,7 +235,7 @@ For backend-connected development, use the production bundle sync above so API a
 gradle -p kotlin/terrain-web-ui jsBrowserDevelopmentRun
 ```
 
-When `web/frontend/dist` exists, the Ktor backend serves it at `/`.
+Frontend assets are built to `kotlin/terrain-web-ui/build/frontendDist` and served by Ktor at `/`.
 
 ## Use the Generated Outputs
 
@@ -280,8 +278,8 @@ Uploaded MBTiles API:
 
 Storage layout:
 
-- Jobs: `web/data/jobs/<jobId>/...`
-- Uploaded MBTiles: `web/data/tilesets/<tilesetId>/...`
+- Jobs: `data/jobs/<jobId>/...`
+- Uploaded MBTiles: `data/tilesets/<tilesetId>/...`
 
 ## Limitations and Compatibility
 
@@ -292,11 +290,10 @@ Storage layout:
 - Filesystem tiles are written as XYZ
 - MBTiles rows are stored as TMS internally
 - Backend flips `y` only when serving job tiles created with `scheme=tms`
-- Legacy Python code is archived in `archive/legacy-python/`
 - Runtime, scripts, Docker, and docs are Kotlin-only
 
 ## Related Docs
 
-- `web/README.md` – Web stack details
+- `deploy/docker/README.md` – Docker deployment details
 - `docs/terrain-pipeline.md` – Conversion pipeline
 - `docs/kotlin-migration-status.md` – Migration status

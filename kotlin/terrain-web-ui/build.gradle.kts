@@ -45,12 +45,12 @@ repositories {
 }
 
 val productionAssetsDir = layout.buildDirectory.dir("dist/js/productionExecutable")
-val frontendDistDir = layout.projectDirectory.dir("../../web/frontend/dist")
+val frontendDistDir = layout.buildDirectory.dir("frontendDist")
 val mapLibreCssDir = layout.buildDirectory.dir("js/node_modules/maplibre-gl/dist")
 
 tasks.register<Sync>("syncFrontendDist") {
     group = "distribution"
-    description = "Copies Kotlin web UI production assets into web/frontend/dist"
+    description = "Copies Kotlin web UI production assets into build/frontendDist"
     dependsOn("kotlinNpmInstall", "jsBrowserDistribution")
     from(productionAssetsDir)
     from(mapLibreCssDir) {
