@@ -4,8 +4,9 @@ import org.w3c.dom.HTMLElement
 
 @JsModule("maplibre-gl")
 @JsNonModule
-@JsName("Map")
-external class MapLibreMap(options: dynamic) {
+private external object MapLibreGlModule
+
+external interface MapLibreMap {
     fun remove()
     fun getZoom(): Double
     fun resize()
@@ -14,11 +15,6 @@ external class MapLibreMap(options: dynamic) {
     fun addControl(control: dynamic, position: String = definedExternally)
     fun on(type: String, listener: (dynamic) -> Unit)
 }
-
-@JsModule("maplibre-gl")
-@JsNonModule
-@JsName("NavigationControl")
-external class MapLibreNavigationControl()
 
 fun createMapLibreMap(
     container: HTMLElement,
@@ -35,7 +31,16 @@ fun createMapLibreMap(
     options.zoom = zoom
     options.pitch = pitch
     options.maxPitch = maxPitch
-    return MapLibreMap(options)
+    val mapConstructor = mapLibreExport("Map")
+    return js("new mapConstructor(options)").unsafeCast<MapLibreMap>()
 }
 
-fun createNavigationControl(): dynamic = MapLibreNavigationControl()
+fun createNavigationControl(): dynamic {
+    val navigationControlConstructor = mapLibreExport("NavigationControl")
+    return js("new navigationControlConstructor()")
+}
+
+private fun mapLibreExport(name: String): dynamic {
+    val module = MapLibreGlModule.asDynamic()
+    return module[name] ?: module.default?.unsafeCast<dynamic>()?.get(name) ?: module.default ?: module
+}
