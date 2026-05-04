@@ -52,12 +52,12 @@ class TerrainWebServerTest {
     }
 
     @Test
-    fun serverInfoReturnsMobileAndLocalhost() = testApplication {
+    fun serverInfoReturnsLanAndLocalhost() = testApplication {
         application { terrainWebModule(testDependencies()) }
         val client = createClient { defaultRequest { header(HttpHeaders.Host, "testserver") } }
         val payload = json.parseToJsonElement(client.get("/api/server-info").bodyAsText()).jsonObject
         val addresses = payload["addresses"]!!.jsonArray
-        assertEquals("mobile", addresses[0].jsonObject["id"]!!.jsonPrimitive.content)
+        assertEquals("lan-primary", addresses[0].jsonObject["id"]!!.jsonPrimitive.content)
         assertEquals("localhost", addresses[1].jsonObject["id"]!!.jsonPrimitive.content)
     }
 
