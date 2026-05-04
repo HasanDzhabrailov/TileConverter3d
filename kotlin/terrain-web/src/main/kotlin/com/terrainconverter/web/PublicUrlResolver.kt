@@ -25,26 +25,55 @@ fun isPrivateIpv4(address: String): Boolean {
 fun resolvePublicHost(requestHost: String): String {
     val configured = System.getenv("TERRAIN_WEB_PUBLIC_HOST")?.trim().orEmpty()
     if (isUsableHost(configured)) return configured
-    if (requestHost !in setOf("127.0.0.1", "localhost", "::1") && isUsableHost(requestHost) && !isDockerIp(requestHost)) return requestHost
-    // Don't return early in container - try to find LAN IP through network interfaces
+    
+    // If requestHost is already a good non-localhost address, use it
+    if (requestHost !in setOf("127.0.0.1", "localhost", "::1") && isUsableHost(requestHost) && !isDockerIp(requestHost)) {
+        return requestHost
+    }
+    
+    // Try to find LAN IP through various methods
+    var foundAddress: String? = null
+    
+    // Method 1: Try to get IP from default gateway connection
     runCatching {
         DatagramSocket().use { socket ->
             socket.connect(InetSocketAddress("8.8.8.8", 80))
             val address = socket.localAddress.hostAddress
-            if (!address.startsWith("127.") && isUsableHost(address) && !isDockerIp(address)) return address
+            if (!address.startsWith("127.") && isUsableHost(address) && !isDockerIp(address)) {
+                foundAddress = address
+            }
         }
     }
-    (NetworkInterface.getNetworkInterfaces()?.let { Collections.list(it) } ?: emptyList()).forEach { iface ->
-        if (!iface.isUp || iface.isLoopback || iface.isVirtual) return@forEach
-        if (isDockerInterface(iface.name)) return@forEach
-        Collections.list(iface.inetAddresses).filterIsInstance<Inet4Address>().map { it.hostAddress }.forEach { address ->
-            if (!address.startsWith("127.") && isPrivateIpv4(address) && isUsableHost(address) && !isDockerIp(address)) return address
+    
+    if (foundAddress != null) return foundAddress!!
+    
+    // Method 2: Iterate network interfaces
+    run findLan@{
+        (NetworkInterface.getNetworkInterfaces()?.let { Collections.list(it) } ?: emptyList()).forEach { iface ->
+            if (!iface.isUp || iface.isLoopback || iface.isVirtual) return@forEach
+            if (isDockerInterface(iface.name)) return@forEach
+            Collections.list(iface.inetAddresses).filterIsInstance<Inet4Address>().map { it.hostAddress }.forEach { address ->
+                if (!address.startsWith("127.") && isPrivateIpv4(address) && isUsableHost(address) && !isDockerIp(address)) {
+                    foundAddress = address
+                    return@findLan
+                }
+            }
         }
     }
+    
+    if (foundAddress != null) return foundAddress!!
+    
+    // Method 3: Try localhost hostname
     runCatching {
-        InetAddress.getLocalHost().hostAddress?.let { if (!it.startsWith("127.") && isUsableHost(it) && !isDockerIp(it)) return it }
+        InetAddress.getLocalHost().hostAddress?.let { 
+            if (!it.startsWith("127.") && isUsableHost(it) && !isDockerIp(it)) {
+                foundAddress = it
+            }
+        }
     }
-    return requestHost
+    
+    // Return found LAN IP or fallback to requestHost
+    return foundAddress ?: requestHost
 }
 
 fun isDockerInterface(name: String): Boolean {
