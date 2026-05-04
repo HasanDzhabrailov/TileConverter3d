@@ -6,8 +6,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.await
 
 enum class PreviewBase {
     OSM,
@@ -27,6 +29,7 @@ class AppState {
     var refreshError by mutableStateOf<String?>(null)
     var jobDetailsError by mutableStateOf<String?>(null)
     var websocketError by mutableStateOf<String?>(null)
+    var activeMobileAddress by mutableStateOf<ServerAddress?>(null)
 
     val selectedJob: Job?
         get() = jobs.firstOrNull { it.id == selectedJobId }
@@ -52,6 +55,27 @@ class AppState {
         }
     }
 
+    suspend fun detectWorkingAddress() {
+        // Get LAN addresses from server info
+        val lanAddresses = serverAddresses.filter { it.id.startsWith("lan-") || it.id == "request-host" }
+        
+        // Try each address to find working one
+        for (address in lanAddresses) {
+            try {
+                val response = kotlinx.browser.window.fetch("${address.baseUrl}/api/health").await()
+                if (response.status == 200.toShort()) {
+                    activeMobileAddress = address
+                    return
+                }
+            } catch (_: Throwable) {
+                // Address not reachable, try next
+            }
+        }
+        
+        // Fallback to first LAN address if none responded
+        activeMobileAddress = lanAddresses.firstOrNull()
+    }
+
     fun mergeJob(job: Job) {
         jobs = listOf(job) + jobs.filterNot { it.id == job.id }
     }
@@ -72,6 +96,8 @@ fun rememberAppState(): AppState {
                     state.applyBootstrap(it)
                     state.isLoading = false
                     state.refreshError = null
+                    // Auto-detect working address after loading
+                    state.detectWorkingAddress()
                 }
                 .onFailure {
                     state.isLoading = false

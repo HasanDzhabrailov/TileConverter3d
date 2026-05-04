@@ -104,15 +104,12 @@ private fun Dashboard(state: AppState) {
 
 @Composable
 private fun MbtilesCatalogPanel(state: AppState) {
-    val lanAddresses = state.serverAddresses.filter { it.id.startsWith("lan-") }
-    
-    // Auto-select first LAN address (backend already filtered out Docker IPs)
-    val activeLanAddress = lanAddresses.firstOrNull()
+    val activeAddress = state.activeMobileAddress
 
     Panel("MBTiles server") {
         MbtilesUploadForm(state)
 
-        activeLanAddress?.let { address ->
+        activeAddress?.let { address ->
             Div(attrs = { attr("class", "panel") }) {
                 Span(attrs = { attr("class", "font-strong") }) {
                     Text("Mobile address: ${address.host}")
@@ -149,7 +146,7 @@ private fun MbtilesCatalogPanel(state: AppState) {
                         Small {
                             Text(formatTimestamp(tileset.createdAt))
                         }
-                        val tileUrl = activeLanAddress?.let { "${it.baseUrl}${tileset.tileUrlTemplate}" }
+                        val tileUrl = activeAddress?.let { "${it.baseUrl}${tileset.tileUrlTemplate}" }
                             ?: tileset.publicTileUrlTemplate
                             ?: tileset.tileUrlTemplate
                         Code {
@@ -157,15 +154,15 @@ private fun MbtilesCatalogPanel(state: AppState) {
                         }
                         Div(attrs = { attr("class", "tile-server-quick-links") }) {
                             CopyButton(ApiClient.absoluteUrl(tileUrl), label = "Copy Tiles")
-                            (activeLanAddress?.let { base -> tileset.mobileStyleUrl?.let { "${base.baseUrl}$it" } }
+                            (activeAddress?.let { base -> tileset.mobileStyleUrl?.let { "${base.baseUrl}$it" } }
                                 ?: tileset.publicMobileStyleUrl)?.let {
                                 CopyButton(ApiClient.absoluteUrl(it), label = "Copy Mobile Style")
                             }
-                            (activeLanAddress?.let { base -> tileset.styleUrl?.let { "${base.baseUrl}$it" } }
+                            (activeAddress?.let { base -> tileset.styleUrl?.let { "${base.baseUrl}$it" } }
                                 ?: tileset.publicStyleUrl)?.let {
                                 CopyButton(ApiClient.absoluteUrl(it), label = "Copy Style")
                             }
-                            (activeLanAddress?.let { base -> tileset.tilejsonUrl?.let { "${base.baseUrl}$it" } }
+                            (activeAddress?.let { base -> tileset.tilejsonUrl?.let { "${base.baseUrl}$it" } }
                                 ?: tileset.publicTilejsonUrl)?.let {
                                 CopyButton(ApiClient.absoluteUrl(it), label = "Copy TileJSON")
                             }
@@ -186,7 +183,7 @@ private fun MbtilesCatalogPanel(state: AppState) {
                 DetailRow("Attribution", it)
             }
             // Show active LAN address for mobile (primary)
-            activeLanAddress?.let { address ->
+            state.activeMobileAddress?.let { address ->
                 Div(attrs = { attr("class", "server-addresses") }) {
                     Div(attrs = { attr("class", "server-address") }) {
                         Span(attrs = { attr("class", "font-strong") }) {
