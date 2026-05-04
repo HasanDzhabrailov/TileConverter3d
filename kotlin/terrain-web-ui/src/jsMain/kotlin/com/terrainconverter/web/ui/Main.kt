@@ -252,25 +252,53 @@ private fun MbtilesCatalogPanel(state: AppState) {
             tileset.attribution?.let {
                 DetailRow("Attribution", it)
             }
-            Div(attrs = { attr("class", "server-addresses") }) {
-                state.serverAddresses.forEach { address ->
+            // Show active LAN address for mobile (primary)
+            activeLanAddress?.let { address ->
+                Div(attrs = { attr("class", "server-addresses") }) {
                     Div(attrs = { attr("class", "server-address") }) {
                         Span(attrs = { attr("class", "font-strong") }) {
-                            Text(address.label)
+                            Text("Mobile / Wi-Fi (selected)")
                         }
                         P(attrs = { attr("class", "server-address-description") }) {
-                            Text(address.description)
+                            Text("Use this address from your phone: ${address.host}")
                         }
                         Div(attrs = { attr("class", "link-list") }) {
-                            TemplateRow("Tiles", addressScopedUrl(address, tileset.tileUrlTemplate))
+                            val baseUrl = address.baseUrl
+                            TemplateRow("Tiles", "$baseUrl${tileset.tileUrlTemplate}")
                             tileset.tilejsonUrl?.let {
-                                LinkRow("TileJSON", addressScopedUrl(address, it))
+                                LinkRow("TileJSON", "$baseUrl$it")
                             }
                             tileset.styleUrl?.let {
-                                LinkRow("Style", addressScopedUrl(address, it))
+                                LinkRow("Style", "$baseUrl$it")
                             }
                             tileset.mobileStyleUrl?.let {
-                                LinkRow("Mobile Style", addressScopedUrl(address, it))
+                                LinkRow("Mobile Style", "$baseUrl$it")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Show localhost for reference
+            state.serverAddresses.find { it.id == "localhost" }?.let { localhost ->
+                Div(attrs = { attr("class", "server-addresses") }) {
+                    Div(attrs = { attr("class", "server-address") }) {
+                        Span(attrs = { attr("class", "font-strong") }) {
+                            Text(localhost.label)
+                        }
+                        P(attrs = { attr("class", "server-address-description") }) {
+                            Text(localhost.description)
+                        }
+                        Div(attrs = { attr("class", "link-list") }) {
+                            TemplateRow("Tiles", addressScopedUrl(localhost, tileset.tileUrlTemplate))
+                            tileset.tilejsonUrl?.let {
+                                LinkRow("TileJSON", addressScopedUrl(localhost, it))
+                            }
+                            tileset.styleUrl?.let {
+                                LinkRow("Style", addressScopedUrl(localhost, it))
+                            }
+                            tileset.mobileStyleUrl?.let {
+                                LinkRow("Mobile Style", addressScopedUrl(localhost, it))
                             }
                         }
                     }
