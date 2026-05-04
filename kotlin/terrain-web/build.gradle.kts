@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.GradleBuild
+import org.gradle.api.tasks.JavaExec
+
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
@@ -40,4 +43,21 @@ application {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+val syncFrontendDist by tasks.registering(GradleBuild::class) {
+    group = "distribution"
+    description = "Builds and syncs the Kotlin/JS web UI assets served by Ktor"
+    dir = file("../terrain-web-ui")
+    tasks = listOf("syncFrontendDist")
+}
+
+tasks.named<JavaExec>("run") {
+    dependsOn(syncFrontendDist)
+    workingDir = rootProject.projectDir
+    environment("TERRAIN_WEB_FRONTEND_DIST", rootProject.file("web/frontend/dist").absolutePath)
+}
+
+tasks.named("installDist") {
+    dependsOn(syncFrontendDist)
 }

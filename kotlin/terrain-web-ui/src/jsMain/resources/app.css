@@ -73,9 +73,19 @@ code {
   text-align: left;
   display: grid;
   gap: 0.2rem;
+  padding: 0.65rem;
+  border-radius: 0.5rem;
+  border: 1px solid #334155;
+  background: #020617;
+  cursor: pointer;
 }
 .job-card.selected {
   border-color: #38bdf8;
+}
+.tile-server-quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 .status-row {
   display: flex;

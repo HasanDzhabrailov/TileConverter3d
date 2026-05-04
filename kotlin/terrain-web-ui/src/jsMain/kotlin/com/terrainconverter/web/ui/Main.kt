@@ -14,10 +14,12 @@ import kotlinx.coroutines.await
 import kotlinx.coroutines.launch
 import kotlin.js.Date
 import org.jetbrains.compose.web.attributes.InputType
+import org.jetbrains.compose.web.attributes.onSubmit
 import org.jetbrains.compose.web.dom.A
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Code
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Form
 import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.H3
@@ -39,6 +41,7 @@ import org.w3c.xhr.FormData
 import kotlin.js.Promise
 
 fun main() {
+    installAppErrorFallback()
     renderComposable(rootElementId = "root") {
         App()
     }
@@ -114,8 +117,10 @@ private fun MbtilesCatalogPanel(state: AppState) {
         } else {
             Div(attrs = { attr("class", "job-list") }) {
                 state.tilesets.forEach { tileset ->
-                    Button(attrs = {
+                    Div(attrs = {
                         attr("class", "job-card" + if (state.selectedTilesetId == tileset.id) " selected" else "")
+                        attr("role", "button")
+                        attr("tabindex", "0")
                         onClick { state.selectedTilesetId = tileset.id }
                     }) {
                         Span(attrs = { attr("class", "font-strong") }) {
@@ -126,6 +131,23 @@ private fun MbtilesCatalogPanel(state: AppState) {
                         }
                         Small {
                             Text(formatTimestamp(tileset.createdAt))
+                        }
+                        val primaryAddress = state.serverAddresses.find { it.id == "mobile" } ?: state.serverAddresses.firstOrNull()
+                        val tileUrl = primaryAddress?.let { addressScopedUrl(it, tileset.tileUrlTemplate) } ?: tileset.publicTileUrlTemplate
+                        Code {
+                            Text(ApiClient.absoluteUrl(tileUrl))
+                        }
+                        Div(attrs = { attr("class", "tile-server-quick-links") }) {
+                            CopyButton(ApiClient.absoluteUrl(tileUrl), label = "Copy Tiles")
+                            (primaryAddress?.let { address -> tileset.mobileStyleUrl?.let { addressScopedUrl(address, it) } } ?: tileset.publicMobileStyleUrl)?.let {
+                                CopyButton(ApiClient.absoluteUrl(it), label = "Copy Mobile Style")
+                            }
+                            (primaryAddress?.let { address -> tileset.styleUrl?.let { addressScopedUrl(address, it) } } ?: tileset.publicStyleUrl)?.let {
+                                CopyButton(ApiClient.absoluteUrl(it), label = "Copy Style")
+                            }
+                            (primaryAddress?.let { address -> tileset.tilejsonUrl?.let { addressScopedUrl(address, it) } } ?: tileset.publicTilejsonUrl)?.let {
+                                CopyButton(ApiClient.absoluteUrl(it), label = "Copy TileJSON")
+                            }
                         }
                     }
                 }
@@ -176,9 +198,41 @@ private fun MbtilesUploadForm(state: AppState) {
     var sourceType by remember { mutableStateOf("auto") }
     var isSubmitting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    fun submit() {
+        if (isSubmitting) return
+        error = null
 
-    Div(attrs = {
+        val file = inputFiles("mbtiles-upload-input").firstOrNull()
+        if (file == null) {
+            error = "Choose an MBTiles file first."
+            return
+        }
+
+        val formData = FormData()
+        formData.append("mbtiles", file, file.name)
+        formData.append("source_type", sourceType)
+
+        isSubmitting = true
+        scope.launch {
+            runCatching { ApiClient.uploadMbtilesTileset(formData) }
+                .onSuccess { tileset ->
+                    state.mergeTileset(tileset)
+                    state.selectedTilesetId = tileset.id
+                    error = null
+                }
+                .onFailure {
+                    error = it.message ?: "Failed to upload MBTiles"
+                }
+            isSubmitting = false
+        }
+    }
+
+    Form(attrs = {
         attr("class", "stack")
+        onSubmit {
+            it.preventDefault()
+            submit()
+        }
     }) {
         Label {
             Text("MBTiles file")
@@ -205,34 +259,8 @@ private fun MbtilesUploadForm(state: AppState) {
             }
         }
         Button(attrs = {
+            attr("type", "submit")
             if (isSubmitting) attr("disabled", "disabled")
-            onClick {
-                error = null
-
-                val file = inputFiles("mbtiles-upload-input").firstOrNull()
-                if (file == null) {
-                    error = "Choose an MBTiles file first."
-                    return@onClick
-                }
-
-                val formData = FormData()
-                formData.append("mbtiles", file, file.name)
-                formData.append("source_type", sourceType)
-
-                isSubmitting = true
-                scope.launch {
-                    runCatching { ApiClient.uploadMbtilesTileset(formData) }
-                        .onSuccess { tileset ->
-                            state.mergeTileset(tileset)
-                            state.selectedTilesetId = tileset.id
-                            error = null
-                        }
-                        .onFailure {
-                            error = it.message ?: "Failed to upload MBTiles"
-                        }
-                    isSubmitting = false
-                }
-            }
         }) {
             Text(if (isSubmitting) "Uploading..." else "Start tile server")
         }
@@ -243,13 +271,65 @@ private fun MbtilesUploadForm(state: AppState) {
 private fun ConvertFormPanel(state: AppState) {
     val scope = rememberCoroutineScope()
     var bboxMode by remember { mutableStateOf("auto") }
+    var west by remember { mutableStateOf("") }
+    var south by remember { mutableStateOf("") }
+    var east by remember { mutableStateOf("") }
+    var north by remember { mutableStateOf("") }
     var scheme by remember { mutableStateOf("xyz") }
     var isSubmitting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    fun submit() {
+        if (isSubmitting) return
+        error = null
+
+        val hgtFiles = inputFiles("job-hgt-files-input")
+        if (hgtFiles.isEmpty()) {
+            error = "Upload at least one HGT file or ZIP archive."
+            return
+        }
+
+        val formData = FormData()
+        hgtFiles.forEach { file ->
+            formData.append("hgt_files", file, file.name)
+        }
+        inputFiles("job-base-mbtiles-input").firstOrNull()?.let { file ->
+            formData.append("base_mbtiles", file, file.name)
+        }
+        formData.append("bbox_mode", bboxMode)
+        formData.append("minzoom", inputValue("job-minzoom-input"))
+        formData.append("maxzoom", inputValue("job-maxzoom-input"))
+        formData.append("tile_size", inputValue("job-tile-size-input"))
+        formData.append("scheme", scheme)
+        formData.append("encoding", "mapbox")
+        if (bboxMode == "manual") {
+            formData.append("west", west)
+            formData.append("south", south)
+            formData.append("east", east)
+            formData.append("north", north)
+        }
+
+        isSubmitting = true
+        scope.launch {
+            runCatching { ApiClient.createJob(formData) }
+                .onSuccess { job ->
+                    state.mergeJob(job)
+                    state.selectedJobId = job.id
+                    error = null
+                }
+                .onFailure {
+                    error = it.message ?: "Failed to create job"
+                }
+            isSubmitting = false
+        }
+    }
 
     Panel("New conversion") {
-        Div(attrs = {
+        Form(attrs = {
             attr("class", "stack")
+            onSubmit {
+                it.preventDefault()
+                submit()
+            }
         }) {
             Div(attrs = { attr("class", "upload-panel stack") }) {
                 H3 {
@@ -303,6 +383,8 @@ private fun ConvertFormPanel(state: AppState) {
                         Text("West")
                         Input(type = InputType.Text, attrs = {
                             id("job-west-input")
+                            value(west)
+                            onInput { west = it.value ?: "" }
                             if (isSubmitting) attr("disabled", "disabled")
                         })
                     }
@@ -310,6 +392,8 @@ private fun ConvertFormPanel(state: AppState) {
                         Text("South")
                         Input(type = InputType.Text, attrs = {
                             id("job-south-input")
+                            value(south)
+                            onInput { south = it.value ?: "" }
                             if (isSubmitting) attr("disabled", "disabled")
                         })
                     }
@@ -317,6 +401,8 @@ private fun ConvertFormPanel(state: AppState) {
                         Text("East")
                         Input(type = InputType.Text, attrs = {
                             id("job-east-input")
+                            value(east)
+                            onInput { east = it.value ?: "" }
                             if (isSubmitting) attr("disabled", "disabled")
                         })
                     }
@@ -324,6 +410,8 @@ private fun ConvertFormPanel(state: AppState) {
                         Text("North")
                         Input(type = InputType.Text, attrs = {
                             id("job-north-input")
+                            value(north)
+                            onInput { north = it.value ?: "" }
                             if (isSubmitting) attr("disabled", "disabled")
                         })
                     }
@@ -371,50 +459,8 @@ private fun ConvertFormPanel(state: AppState) {
             }
 
             Button(attrs = {
+                attr("type", "submit")
                 if (isSubmitting) attr("disabled", "disabled")
-                onClick {
-                    error = null
-
-                    val hgtFiles = inputFiles("job-hgt-files-input")
-                    if (hgtFiles.isEmpty()) {
-                        error = "Upload at least one HGT file or ZIP archive."
-                        return@onClick
-                    }
-
-                    val formData = FormData()
-                    hgtFiles.forEach { file ->
-                        formData.append("hgt_files", file, file.name)
-                    }
-                    inputFiles("job-base-mbtiles-input").firstOrNull()?.let { file ->
-                        formData.append("base_mbtiles", file, file.name)
-                    }
-                    formData.append("bbox_mode", bboxMode)
-                    formData.append("minzoom", inputValue("job-minzoom-input"))
-                    formData.append("maxzoom", inputValue("job-maxzoom-input"))
-                    formData.append("tile_size", inputValue("job-tile-size-input"))
-                    formData.append("scheme", scheme)
-                    formData.append("encoding", "mapbox")
-                    if (bboxMode == "manual") {
-                        formData.append("west", inputValue("job-west-input"))
-                        formData.append("south", inputValue("job-south-input"))
-                        formData.append("east", inputValue("job-east-input"))
-                        formData.append("north", inputValue("job-north-input"))
-                    }
-
-                    isSubmitting = true
-                    scope.launch {
-                        runCatching { ApiClient.createJob(formData) }
-                            .onSuccess { job ->
-                                state.mergeJob(job)
-                                state.selectedJobId = job.id
-                                error = null
-                            }
-                            .onFailure {
-                                error = it.message ?: "Failed to create job"
-                            }
-                        isSubmitting = false
-                    }
-                }
             }) {
                 Text(if (isSubmitting) "Starting..." else "Start conversion")
             }
@@ -501,6 +547,18 @@ private fun JobStatusPanel(state: AppState) {
         job.artifacts.stylejson?.let {
             LinkRow("Style", it)
         }
+        job.artifacts.terrainTileUrlTemplate?.let {
+            TemplateRow("Terrain Tiles", it)
+        }
+        job.artifacts.publicTerrainTileUrlTemplate?.let {
+            TemplateRow("Public Terrain Tiles", it)
+        }
+        job.artifacts.publicTilejson?.let {
+            LinkRow("Public TileJSON", it)
+        }
+        job.artifacts.publicStylejson?.let {
+            LinkRow("Public Style", it)
+        }
         if (state.previewBase == PreviewBase.UPLOADED && !job.hasBaseMbtiles) {
             P(attrs = { attr("class", "hint") }) {
                 Text("This job has no uploaded base MBTiles, so only terrain will be shown.")
@@ -538,6 +596,7 @@ private fun MbtilesPreviewPanel(tileset: MbtilesTileset?, previewBase: PreviewBa
 
     var pitch by remember(tileset.id) { mutableStateOf(55) }
     var zoom by remember(tileset.id) { mutableStateOf<Double?>(null) }
+    var previewError by remember(tileset.id, previewBase) { mutableStateOf<String?>(null) }
     var mapInstance by remember(tileset.id, previewBase) { mutableStateOf<MapLibreMap?>(null) }
     val mapId = "mbtiles-preview-map"
 
@@ -564,40 +623,55 @@ private fun MbtilesPreviewPanel(tileset: MbtilesTileset?, previewBase: PreviewBa
             id(mapId)
             attr("class", "map")
         })
+        previewError?.let {
+            P(attrs = { attr("class", "error") }) {
+                Text(it)
+            }
+        }
     }
 
     DisposableEffect(tileset.id, previewBase) {
         mapInstance?.remove()
         mapInstance = null
+        previewError = null
 
         val container = document.getElementById(mapId)?.unsafeCast<HTMLDivElement>()
         if (container != null) {
-            val map = createMapLibreMap(
-                container = container,
-                style = buildMbtilesPreviewStyle(tileset, previewBase),
-                center = tileset.view?.let { arrayOf(it.centerLon, it.centerLat) } ?: arrayOf(0.0, 0.0),
-                zoom = tileset.view?.zoom?.toDouble() ?: 1.0,
-                pitch = if (tileset.sourceType == SourceType.RASTER_DEM) pitch.toDouble() else 0.0,
-            )
-            zoom = map.getZoom()
-            map.on("zoom") {
-                zoom = map.getZoom()
-            }
-            tileset.bounds?.let {
-                map.fitBounds(
-                    bounds = arrayOf(
-                        arrayOf(it.west, it.south),
-                        arrayOf(it.east, it.north),
-                    ),
-                    options = js("({ padding: 24, duration: 0 })"),
+            runCatching {
+                val map = createMapLibreMap(
+                    container = container,
+                    style = buildMbtilesPreviewStyle(tileset, previewBase),
+                    center = tileset.view?.let { arrayOf(it.centerLon, it.centerLat) } ?: arrayOf(0.0, 0.0),
+                    zoom = tileset.view?.zoom?.toDouble() ?: 1.0,
+                    pitch = if (tileset.sourceType == SourceType.RASTER_DEM) pitch.toDouble() else 0.0,
                 )
-                if (tileset.sourceType == SourceType.RASTER_DEM) {
-                    map.setPitch(pitch.toDouble())
-                }
                 zoom = map.getZoom()
+                map.on("zoom") {
+                    zoom = map.getZoom()
+                }
+                map.on("error") { event ->
+                    previewError = mapLibreErrorMessage(event)
+                }
+                tileset.bounds?.let {
+                    map.fitBounds(
+                        bounds = arrayOf(
+                            arrayOf(it.west, it.south),
+                            arrayOf(it.east, it.north),
+                        ),
+                        options = js("({ padding: 24, duration: 0 })"),
+                    )
+                    if (tileset.sourceType == SourceType.RASTER_DEM) {
+                        map.setPitch(pitch.toDouble())
+                    }
+                    zoom = map.getZoom()
+                }
+                map.addControl(createNavigationControl(), "top-right")
+                window.setTimeout({ map.resize() }, 0)
+                window.setTimeout({ map.resize() }, 250)
+                mapInstance = map
+            }.onFailure {
+                previewError = "Failed to start preview: ${it.message ?: it.toString()}"
             }
-            map.addControl(createNavigationControl(), "top-right")
-            mapInstance = map
         }
 
         onDispose {
@@ -630,6 +704,7 @@ private fun TerrainPreviewPanel(job: Job?, previewBase: PreviewBase) {
 
     var pitch by remember(job.id) { mutableStateOf(55) }
     var zoom by remember(job.id) { mutableStateOf<Double?>(null) }
+    var previewError by remember(job.id, previewBase) { mutableStateOf<String?>(null) }
     var mapInstance by remember(job.id, previewBase) { mutableStateOf<MapLibreMap?>(null) }
     val mapId = "terrain-preview-map"
 
@@ -655,40 +730,55 @@ private fun TerrainPreviewPanel(job: Job?, previewBase: PreviewBase) {
             id(mapId)
             attr("class", "map")
         })
+        previewError?.let {
+            P(attrs = { attr("class", "error") }) {
+                Text(it)
+            }
+        }
     }
 
     DisposableEffect(job.id, previewBase) {
         mapInstance?.remove()
         mapInstance = null
+        previewError = null
 
         val container = document.getElementById(mapId)?.unsafeCast<HTMLDivElement>()
         if (container != null) {
-            val map = createMapLibreMap(
-                container = container,
-                style = buildTerrainPreviewStyle(job, previewBase),
-                center = job.result.bounds?.let {
-                    arrayOf((it.west + it.east) / 2.0, (it.south + it.north) / 2.0)
-                } ?: arrayOf(0.0, 0.0),
-                zoom = maxOf(job.options.minzoom, 8).toDouble(),
-                pitch = pitch.toDouble(),
-            )
-            zoom = map.getZoom()
-            map.on("zoom") {
-                zoom = map.getZoom()
-            }
-            job.result.bounds?.let {
-                map.fitBounds(
-                    bounds = arrayOf(
-                        arrayOf(it.west, it.south),
-                        arrayOf(it.east, it.north),
-                    ),
-                    options = js("({ padding: 24, duration: 0 })"),
+            runCatching {
+                val map = createMapLibreMap(
+                    container = container,
+                    style = buildTerrainPreviewStyle(job, previewBase),
+                    center = job.result.bounds?.let {
+                        arrayOf((it.west + it.east) / 2.0, (it.south + it.north) / 2.0)
+                    } ?: arrayOf(0.0, 0.0),
+                    zoom = maxOf(job.options.minzoom, 8).toDouble(),
+                    pitch = pitch.toDouble(),
                 )
-                map.setPitch(pitch.toDouble())
                 zoom = map.getZoom()
+                map.on("zoom") {
+                    zoom = map.getZoom()
+                }
+                map.on("error") { event ->
+                    previewError = mapLibreErrorMessage(event)
+                }
+                job.result.bounds?.let {
+                    map.fitBounds(
+                        bounds = arrayOf(
+                            arrayOf(it.west, it.south),
+                            arrayOf(it.east, it.north),
+                        ),
+                        options = js("({ padding: 24, duration: 0 })"),
+                    )
+                    map.setPitch(pitch.toDouble())
+                    zoom = map.getZoom()
+                }
+                map.addControl(createNavigationControl(), "top-right")
+                window.setTimeout({ map.resize() }, 0)
+                window.setTimeout({ map.resize() }, 250)
+                mapInstance = map
+            }.onFailure {
+                previewError = "Failed to start preview: ${it.message ?: it.toString()}"
             }
-            map.addControl(createNavigationControl(), "top-right")
-            mapInstance = map
         }
 
         onDispose {
@@ -808,13 +898,14 @@ private fun ArtifactLink(label: String, href: String) {
 }
 
 @Composable
-private fun CopyButton(value: String, onStatusChange: ((String?) -> Unit)? = null) {
+private fun CopyButton(value: String, label: String = "Copy", onStatusChange: ((String?) -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     var ownStatus by remember { mutableStateOf<String?>(null) }
     val status: (String?) -> Unit = onStatusChange ?: { value -> ownStatus = value }
 
     Button(attrs = {
         attr("class", "copy-button")
+        attr("type", "button")
         onClick {
             scope.launch {
                 val copied = copyTextToClipboard(value)
@@ -823,7 +914,7 @@ private fun CopyButton(value: String, onStatusChange: ((String?) -> Unit)? = nul
             }
         }
     }) {
-        Text(ownStatus ?: "Copy")
+        Text(ownStatus ?: label)
     }
 }
 
@@ -856,6 +947,38 @@ private fun SourceType.serializedName(): String = when (this) {
 
 private fun addressScopedUrl(address: ServerAddress, path: String): String {
     return ApiClient.absoluteUrl(address.baseUrl + path)
+}
+
+private fun installAppErrorFallback() {
+    fun renderError(message: String) {
+        val safeMessage = message
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        document.getElementById("root")?.innerHTML = """
+            <div class="app-shell">
+              <div class="app-header">
+                <h1>Terrain Converter</h1>
+              </div>
+              <main class="layout">
+                <section class="panel warning-panel">
+                  <h2>Something went wrong</h2>
+                  <pre>$safeMessage</pre>
+                </section>
+              </main>
+            </div>
+        """.trimIndent()
+    }
+
+    window.addEventListener("error", { event ->
+        val message = event.asDynamic().message?.toString() ?: "Unhandled UI error"
+        renderError(message)
+    })
+    window.addEventListener("unhandledrejection", { event ->
+        val reason = event.asDynamic().reason
+        val message = reason?.message?.toString() ?: reason?.toString() ?: "Unhandled async UI error"
+        renderError(message)
+    })
 }
 
 private fun inputValue(id: String): String {
@@ -989,6 +1112,11 @@ private fun TerrainEncoding.serializedName(): String = when (this) {
 private fun TileScheme.serializedName(): String = when (this) {
     TileScheme.XYZ -> "xyz"
     TileScheme.TMS -> "tms"
+}
+
+private fun mapLibreErrorMessage(event: dynamic): String {
+    val message = event?.error?.message ?: event?.message
+    return "Preview warning: ${message?.toString() ?: "MapLibre failed to load a preview resource."}"
 }
 
 private suspend fun copyTextToClipboard(value: String): Boolean {

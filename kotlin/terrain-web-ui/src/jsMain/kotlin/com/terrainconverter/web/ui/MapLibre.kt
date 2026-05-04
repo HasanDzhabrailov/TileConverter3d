@@ -8,10 +8,11 @@ import org.w3c.dom.HTMLElement
 external class MapLibreMap(options: dynamic) {
     fun remove()
     fun getZoom(): Double
+    fun resize()
     fun setPitch(pitch: Double)
     fun fitBounds(bounds: Array<Array<Double>>, options: dynamic = definedExternally)
     fun addControl(control: dynamic, position: String = definedExternally)
-    fun on(type: String, listener: () -> Unit)
+    fun on(type: String, listener: (dynamic) -> Unit)
 }
 
 @JsModule("maplibre-gl")
