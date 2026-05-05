@@ -2,7 +2,8 @@ FROM gradle:8.7-jdk21 AS build
 WORKDIR /app
 
 # Copy all project files
-COPY build.gradle.kts settings.gradle.kts ./
+COPY build.gradle.kts settings.gradle.kts gradle.properties ./
+COPY kotlin-js-store ./kotlin-js-store
 COPY kotlin ./kotlin
 
 # Build (frontend is built automatically as dependency of installDist)
