@@ -13,12 +13,16 @@ private data class HgtTileDescriptor(
 }
 
 private class TileCache(private val maxEntries: Int) {
-    private val cache = object : LinkedHashMap<Pair<Int, Int>, HgtTile>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Pair<Int, Int>, HgtTile>?): Boolean = size > maxEntries
-    }
+    private val cache = LinkedHashMap<Pair<Int, Int>, HgtTile>(16, 0.75f, true)
 
     fun getOrLoad(key: Pair<Int, Int>, loader: () -> HgtTile): HgtTile = synchronized(cache) {
-        cache[key] ?: loader().also { cache[key] = it }
+        cache[key] ?: loader().also { loaded ->
+            cache[key] = loaded
+            // Evict oldest entries if over capacity
+            while (cache.size > maxEntries) {
+                cache.remove(cache.keys.iterator().next())
+            }
+        }
     }
 }
 
