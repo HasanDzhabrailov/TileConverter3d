@@ -1,7 +1,7 @@
 services:
   terrain-web:
     build:
-      context: ..
+      context: ../..
       dockerfile: deploy/docker/Dockerfile
     restart: unless-stopped
     ports:
