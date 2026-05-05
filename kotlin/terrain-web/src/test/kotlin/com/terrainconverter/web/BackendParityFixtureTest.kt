@@ -411,13 +411,12 @@ class BackendParityFixtureTest {
 
     private fun readJson(path: String): JsonElement = parse(readText(path))
 
-    private fun readText(path: String): String = Files.readString(fixtureRoot().resolve(path))
-
-    private fun fixtureRoot(): Path = repoRoot().resolve("kotlin/parity-fixtures")
-
-    private fun repoRoot(): Path = generateSequence(Path.of("").toAbsolutePath()) { it.parent }
-        .firstOrNull { Files.exists(it.resolve("kotlin/parity-fixtures/manifest.json")) }
-        ?: error("Could not locate repo root from ${Path.of("").toAbsolutePath()}")
+    private fun readText(path: String): String {
+        val resourcePath = "/fixtures/$path"
+        val url = javaClass.getResource(resourcePath)
+            ?: error("Resource not found: $resourcePath")
+        return url.readText()
+    }
 
     companion object {
         private val PNG_BYTES = "\u0089PNG\r\n\u001a\nmock".toByteArray(Charsets.ISO_8859_1)

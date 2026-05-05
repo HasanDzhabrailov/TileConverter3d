@@ -90,11 +90,10 @@ class CliParityFixtureTest {
         assertEquals(expected, actual, "Expected fixture parity at JSON boundary")
     }
 
-    private fun readJson(path: String): JsonElement = json.parseToJsonElement(Files.readString(fixtureRoot().resolve(path)))
-
-    private fun fixtureRoot(): Path = repoRoot().resolve("kotlin/parity-fixtures")
-
-    private fun repoRoot(): Path = generateSequence(Path.of("").toAbsolutePath()) { it.parent }
-        .firstOrNull { Files.exists(it.resolve("kotlin/parity-fixtures/manifest.json")) }
-        ?: error("Could not locate repo root from ${Path.of("").toAbsolutePath()}")
+    private fun readJson(path: String): JsonElement {
+        val resourcePath = "/fixtures/$path"
+        val url = javaClass.getResource(resourcePath)
+            ?: error("Resource not found: $resourcePath")
+        return json.parseToJsonElement(url.readText())
+    }
 }

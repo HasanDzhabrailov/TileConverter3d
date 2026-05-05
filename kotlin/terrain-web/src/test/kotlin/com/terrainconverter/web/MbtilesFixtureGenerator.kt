@@ -7,7 +7,7 @@ import kotlin.io.path.writeBytes
 
 /**
  * Helper to generate committed MBTiles fixtures for upload parity testing.
- * Run this to regenerate the binary fixtures in kotlin/parity-fixtures/inputs/mbtiles/uploads/
+ * Run this to regenerate the binary fixtures in kotlin/terrain-web/src/test/resources/fixtures/inputs/mbtiles/uploads/
  */
 object MbtilesFixtureGenerator {
     
@@ -30,7 +30,7 @@ object MbtilesFixtureGenerator {
         val outputDir = if (args.isNotEmpty()) {
             Path.of(args[0])
         } else {
-            Path.of("kotlin/parity-fixtures/inputs/mbtiles/uploads")
+            Path.of("kotlin/terrain-web/src/test/resources/fixtures/inputs/mbtiles/uploads")
         }
         
         Files.createDirectories(outputDir)
