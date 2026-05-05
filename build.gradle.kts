@@ -1,7 +1,9 @@
 plugins {
     base
-    kotlin("jvm") version "1.9.23" apply false
-    kotlin("plugin.serialization") version "1.9.23" apply false
+    kotlin("jvm") version "2.0.21" apply false
+    kotlin("plugin.serialization") version "2.0.21" apply false
+    kotlin("multiplatform") version "2.0.21" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "2.0.21" apply false
 }
 
 allprojects {
