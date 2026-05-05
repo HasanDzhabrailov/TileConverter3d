@@ -51,7 +51,7 @@ val mapLibreCssDir = layout.buildDirectory.dir("js/node_modules/maplibre-gl/dist
 tasks.register<Sync>("syncFrontendDist") {
     group = "distribution"
     description = "Copies Kotlin web UI production assets into build/frontendDist"
-    dependsOn("kotlinNpmInstall", "jsBrowserDistribution")
+    dependsOn(tasks.named("jsBrowserDistribution"))
     from(productionAssetsDir)
     from(mapLibreCssDir) {
         include("maplibre-gl.css")
