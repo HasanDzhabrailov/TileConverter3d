@@ -1,12 +1,17 @@
 FROM gradle:8.7-jdk21 AS build
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nodejs npm \
+    && npm install --global yarn@1.22.17 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy all project files
 COPY build.gradle.kts settings.gradle.kts gradle.properties ./
 COPY kotlin ./kotlin
 
 # Build (frontend is built automatically as dependency of installDist)
-RUN gradle :terrain-web:installDist --no-daemon
+RUN gradle :terrain-web:installDist --no-daemon -Pterrain.useSystemJsToolchain=true
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
