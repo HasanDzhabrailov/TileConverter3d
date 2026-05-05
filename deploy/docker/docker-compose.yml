@@ -9,7 +9,13 @@ services:
     environment:
       TERRAIN_WEB_HOST: 0.0.0.0
       TERRAIN_WEB_PORT: 8080
+      TERRAIN_WEB_PUBLIC_URL: ${TERRAIN_WEB_PUBLIC_URL:-}
       TERRAIN_WEB_PUBLIC_HOST: ${TERRAIN_WEB_PUBLIC_HOST:-}
+      TERRAIN_WEB_LAN_HOST: ${TERRAIN_WEB_LAN_HOST:-}
+      TERRAIN_WEB_LAN_HOST_FILE: /app/config/lan-host.txt
+      TERRAIN_WEB_LOCAL_DOMAIN: ${TERRAIN_WEB_LOCAL_DOMAIN:-}
+      TERRAIN_WEB_HOST_COMPUTERNAME: ${COMPUTERNAME:-}
+      TERRAIN_WEB_HOST_HOSTNAME: ${HOSTNAME:-}
       TERRAIN_WEB_STORAGE_ROOT: /app/data
       TERRAIN_WEB_FRONTEND_DIST: /app/terrain-web-ui
       JAVA_TOOL_OPTIONS: "${JAVA_TOOL_OPTIONS:--Xms512m -Xmx4g}"
@@ -21,6 +27,7 @@ services:
       start_period: 15s
     volumes:
       - terrain-web-data:/app/data
+      - ./runtime:/app/config:ro
 
 volumes:
   terrain-web-data:

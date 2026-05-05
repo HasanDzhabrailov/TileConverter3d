@@ -233,7 +233,7 @@ class TerrainWebServerTest {
         val tempDir = Files.createTempDirectory("terrain-web-test-")
         application { terrainWebModule(testDependencies(tempDir)) }
         val uploadHost = "upload.internal"
-        val requestHost = "phone.local"
+        val requestHost = "phone.internal"
         val dockerClient = createClient { defaultRequest { header(HttpHeaders.Host, uploadHost) } }
         val mobileClient = createClient { defaultRequest { header(HttpHeaders.Host, requestHost) } }
         val response = dockerClient.post("/api/mbtiles") {

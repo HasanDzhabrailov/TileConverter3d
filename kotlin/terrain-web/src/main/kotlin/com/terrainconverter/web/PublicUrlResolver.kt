@@ -14,6 +14,11 @@ import java.util.Collections
 
 fun isUsableHost(host: String?): Boolean = !host.isNullOrBlank() && host !in setOf(".", "0.0.0.0", "localhost", "::", "::1")
 
+fun configuredPublicBaseUrl(): String? {
+    val configured = System.getenv("TERRAIN_WEB_PUBLIC_URL")?.trim().orEmpty().trimEnd('/')
+    return configured.takeIf { it.startsWith("http://") }
+}
+
 fun isPrivateIpv4(address: String): Boolean {
     val octets = address.split('.')
     if (octets.size != 4) return false
@@ -28,14 +33,55 @@ fun isLanIpv4Host(address: String): Boolean {
         isUsableHost(address)
 }
 
+fun configuredLanHost(): String? {
+    val configured = System.getenv("TERRAIN_WEB_LAN_HOST")?.trim().orEmpty()
+    if (isLanIpv4Host(configured)) return configured
+
+    val configuredFile = System.getenv("TERRAIN_WEB_LAN_HOST_FILE")?.trim().orEmpty()
+    val hostFile = configuredFile.ifBlank { "/app/config/lan-host.txt" }
+    return runCatching { Files.readString(Path.of(hostFile)).trim() }
+        .getOrNull()
+        ?.takeIf { isLanIpv4Host(it) }
+}
+
+fun resolveLocalDomainHost(): String? {
+    val configured = System.getenv("TERRAIN_WEB_LOCAL_DOMAIN")?.trim().orEmpty()
+    if (isUsableHost(configured)) return configured.removePrefix("http://").substringBefore('/').substringBefore(':')
+
+    val hostName = listOf(
+        System.getenv("TERRAIN_WEB_HOST_COMPUTERNAME"),
+        System.getenv("TERRAIN_WEB_HOST_HOSTNAME"),
+    ).firstOrNull { isUsableHost(it) }
+        ?: runCatching { InetAddress.getLocalHost().hostName }.getOrNull()
+
+    val clean = hostName
+        ?.trim()
+        ?.substringBefore('.')
+        ?.filter { it.isLetterOrDigit() || it == '-' }
+        ?.takeIf { isUsableHost(it) }
+    return clean?.let { "$it.local" }
+}
+
+fun lanIpDomainHost(address: String): String = address.replace('.', '-') + ".sslip.io"
+
 fun resolvePublicHost(requestHost: String): String {
     val configured = System.getenv("TERRAIN_WEB_PUBLIC_HOST")?.trim().orEmpty()
     if (isUsableHost(configured)) return configured
-    
-    // If requestHost is already a good non-localhost address, use it
-    if (requestHost !in setOf("127.0.0.1", "localhost", "::1") && isUsableHost(requestHost)) {
+
+    configuredLanHost()?.let { return lanIpDomainHost(it) }
+
+    // If requestHost is already a good non-localhost address, use it. Avoid .local as a generated
+    // public URL because many Android clients do not resolve mDNS names reliably.
+    if (requestHost !in setOf("127.0.0.1", "localhost", "::1") && !requestHost.endsWith(".local") && isUsableHost(requestHost)) {
         return requestHost
     }
+
+    if (!isRunningInContainer()) {
+        resolveAllLanHosts().firstOrNull()?.let { return lanIpDomainHost(it) }
+    }
+    resolveLocalDomainHost()?.let { return it }
+
+    if (isRunningInContainer()) return requestHost
     
     // Try to find LAN IP through various methods
     var foundAddress: String? = null
@@ -89,11 +135,15 @@ fun isDockerInterface(name: String): Boolean {
 
 fun resolveAllLanHosts(): List<String> {
     val hosts = mutableListOf<String>()
+    configuredLanHost()?.let { hosts.add(it) }
+
     val configured = System.getenv("TERRAIN_WEB_PUBLIC_HOST")?.trim().orEmpty()
     if (isUsableHost(configured)) {
-        hosts.add(configured)
+        if (configured !in hosts) hosts.add(configured)
         return hosts
     }
+
+    if (isRunningInContainer()) return hosts
 
     runCatching {
         DatagramSocket().use { socket ->
@@ -139,13 +189,47 @@ fun baseUrl(scheme: String, host: String, port: Int): String {
     return "$scheme://$host$portSuffix"
 }
 
-fun publicBaseUrl(scheme: String, requestHost: String, port: Int): String = baseUrl(scheme, resolvePublicHost(requestHost), port)
+fun publicBaseUrl(scheme: String, requestHost: String, port: Int): String {
+    configuredPublicBaseUrl()?.let { return it }
+    return baseUrl(scheme, resolvePublicHost(requestHost), port)
+}
 
 fun requestBaseUrl(call: ApplicationCall): String = baseUrl(requestScheme(call), call.request.host(), requestPort(call))
 
 fun buildServerInfo(requestHost: String, requestBaseUrl: String, scheme: String, port: Int): ServerInfo {
     val allLanHosts = resolveAllLanHosts()
     val addresses = mutableListOf<ServerAddress>()
+
+    configuredPublicBaseUrl()?.let { publicUrl ->
+        addresses += ServerAddress(
+            id = "public",
+            label = "Public URL",
+            host = publicUrl.substringAfter("://").substringBefore('/'),
+            baseUrl = publicUrl,
+            description = "Use this externally reachable address from other networks and mobile clients.",
+        )
+    }
+
+    allLanHosts.firstOrNull()?.let { lanHost ->
+        val domain = lanIpDomainHost(lanHost)
+        addresses += ServerAddress(
+            id = "lan-domain",
+            label = "Mobile LAN domain",
+            host = domain,
+            baseUrl = baseUrl("http", domain, port),
+            description = "HTTP domain that resolves to the detected LAN IP. Use it from another device in the same network.",
+        )
+    }
+
+    resolveLocalDomainHost()?.let { localDomain ->
+        addresses += ServerAddress(
+            id = "local-domain",
+            label = "Local network domain",
+            host = localDomain,
+            baseUrl = baseUrl("http", localDomain, port),
+            description = "Try this HTTP .local address from another device in the same network.",
+        )
+    }
 
     if (allLanHosts.isNotEmpty()) {
         addresses += ServerAddress(

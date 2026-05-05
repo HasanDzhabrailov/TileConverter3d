@@ -109,6 +109,13 @@ private fun MbtilesCatalogPanel(state: AppState) {
     Panel("MBTiles server") {
         MbtilesUploadForm(state)
 
+        if (isLocalBrowserHost()) {
+            StatusCard(
+                "Предупреждение для телефона",
+                "Страница открыта через ${window.location.host}. Телефон не может использовать localhost этого компьютера. Откройте этот UI через LAN IP компьютера, например http://<computer-lan-ip>${portSuffixForHint()}, чтобы сервер создал рабочие ссылки для телефона.",
+            )
+        }
+
         activeAddress?.let { address ->
             Div(attrs = { attr("class", "panel") }) {
                 Span(attrs = { attr("class", "font-strong") }) {
@@ -237,6 +244,13 @@ private fun MbtilesCatalogPanel(state: AppState) {
         }
     }
 }
+
+private fun isLocalBrowserHost(): Boolean {
+    val host = window.location.hostname.lowercase()
+    return host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "0.0.0.0"
+}
+
+private fun portSuffixForHint(): String = window.location.port.takeIf { it.isNotBlank() }?.let { ":$it" } ?: ""
 
 @Composable
 private fun MbtilesUploadForm(state: AppState) {

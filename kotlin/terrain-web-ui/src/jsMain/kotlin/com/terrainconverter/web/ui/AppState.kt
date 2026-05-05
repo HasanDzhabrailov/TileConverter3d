@@ -56,8 +56,15 @@ class AppState {
     }
 
     suspend fun detectWorkingAddress() {
-        // Get LAN addresses from server info
-        val lanAddresses = serverAddresses.filter { it.id.startsWith("lan-") || it.id == "request-host" }
+        val mobileAddressOrder = listOf("public", "lan-primary", "lan-domain", "request-host", "local-domain")
+        val lanAddresses = serverAddresses
+            .filter {
+                it.id in mobileAddressOrder || it.id.startsWith("lan-alt-")
+            }
+            .sortedBy {
+                val index = mobileAddressOrder.indexOf(it.id)
+                if (index >= 0) index else mobileAddressOrder.size
+            }
         
         // Try each address to find working one
         for (address in lanAddresses) {
