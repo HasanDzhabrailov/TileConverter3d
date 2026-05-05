@@ -1,4 +1,3 @@
-import org.gradle.api.tasks.GradleBuild
 import org.gradle.api.tasks.JavaExec
 
 plugins {
@@ -45,20 +44,13 @@ tasks.test {
     useJUnitPlatform()
 }
 
-val syncFrontendDist by tasks.registering(GradleBuild::class) {
-    group = "distribution"
-    description = "Builds and syncs the Kotlin/JS web UI assets served by Ktor"
-    dir = file("../terrain-web-ui")
-    tasks = listOf("syncFrontendDist")
-}
-
+// Use direct task reference instead of GradleBuild to avoid nested Gradle processes
 tasks.named<JavaExec>("run") {
-    dependsOn(syncFrontendDist)
+    dependsOn(":terrain-web-ui:syncFrontendDist")
     workingDir = rootProject.projectDir
     environment("TERRAIN_WEB_FRONTEND_DIST", rootProject.file("kotlin/terrain-web-ui/build/frontendDist").absolutePath)
 }
 
 tasks.named("installDist") {
-    // Note: In Docker, frontend assets are copied from frontend-build stage
-    // For local development, run syncFrontendDist manually before installDist
+    dependsOn(":terrain-web-ui:syncFrontendDist")
 }

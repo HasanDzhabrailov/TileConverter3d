@@ -5,8 +5,8 @@ WORKDIR /app
 COPY build.gradle.kts settings.gradle.kts ./
 COPY kotlin ./kotlin
 
-# Build frontend and backend
-RUN gradle :terrain-web-ui:syncFrontendDist :terrain-web:installDist --no-daemon
+# Build (frontend is built automatically as dependency of installDist)
+RUN gradle :terrain-web:installDist --no-daemon
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
