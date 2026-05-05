@@ -22,12 +22,18 @@ fun isPrivateIpv4(address: String): Boolean {
     return first == 10 || (first == 192 && second == 168) || (first == 172 && second in 16..31)
 }
 
+fun isLanIpv4Host(address: String): Boolean {
+    return !address.startsWith("127.") &&
+        isPrivateIpv4(address) &&
+        isUsableHost(address)
+}
+
 fun resolvePublicHost(requestHost: String): String {
     val configured = System.getenv("TERRAIN_WEB_PUBLIC_HOST")?.trim().orEmpty()
     if (isUsableHost(configured)) return configured
     
     // If requestHost is already a good non-localhost address, use it
-    if (requestHost !in setOf("127.0.0.1", "localhost", "::1") && isUsableHost(requestHost) && !isDockerIp(requestHost)) {
+    if (requestHost !in setOf("127.0.0.1", "localhost", "::1") && isUsableHost(requestHost)) {
         return requestHost
     }
     
@@ -39,7 +45,7 @@ fun resolvePublicHost(requestHost: String): String {
         DatagramSocket().use { socket ->
             socket.connect(InetSocketAddress("8.8.8.8", 80))
             val address = socket.localAddress.hostAddress
-            if (!address.startsWith("127.") && isUsableHost(address) && !isDockerIp(address)) {
+            if (isLanIpv4Host(address)) {
                 foundAddress = address
             }
         }
@@ -53,7 +59,7 @@ fun resolvePublicHost(requestHost: String): String {
             if (!iface.isUp || iface.isLoopback || iface.isVirtual) return@forEach
             if (isDockerInterface(iface.name)) return@forEach
             Collections.list(iface.inetAddresses).filterIsInstance<Inet4Address>().map { it.hostAddress }.forEach { address ->
-                if (!address.startsWith("127.") && isPrivateIpv4(address) && isUsableHost(address) && !isDockerIp(address)) {
+                if (isLanIpv4Host(address)) {
                     foundAddress = address
                     return@findLan
                 }
@@ -66,7 +72,7 @@ fun resolvePublicHost(requestHost: String): String {
     // Method 3: Try localhost hostname
     runCatching {
         InetAddress.getLocalHost().hostAddress?.let { 
-            if (!it.startsWith("127.") && isUsableHost(it) && !isDockerIp(it)) {
+            if (isLanIpv4Host(it)) {
                 foundAddress = it
             }
         }
@@ -81,16 +87,6 @@ fun isDockerInterface(name: String): Boolean {
     return lower.startsWith("docker") || lower.startsWith("br-") || lower.startsWith("veth") || lower.contains("docker")
 }
 
-fun isDockerIp(address: String): Boolean {
-    // Docker typically uses 172.17.x.x - 172.31.x.x
-    val octets = address.split('.')
-    if (octets.size != 4) return false
-    val first = octets[0].toIntOrNull() ?: return false
-    val second = octets[1].toIntOrNull() ?: return false
-    // Docker default networks: 172.17.0.0/16, 172.18.0.0/16, etc.
-    return first == 172 && second in 17..31
-}
-
 fun resolveAllLanHosts(): List<String> {
     val hosts = mutableListOf<String>()
     val configured = System.getenv("TERRAIN_WEB_PUBLIC_HOST")?.trim().orEmpty()
@@ -103,7 +99,7 @@ fun resolveAllLanHosts(): List<String> {
         DatagramSocket().use { socket ->
             socket.connect(InetSocketAddress("8.8.8.8", 80))
             val address = socket.localAddress.hostAddress
-            if (!address.startsWith("127.") && isUsableHost(address) && isPrivateIpv4(address) && !isDockerIp(address)) {
+            if (isLanIpv4Host(address)) {
                 hosts.add(address)
             }
         }
@@ -114,7 +110,7 @@ fun resolveAllLanHosts(): List<String> {
         // Skip Docker interfaces
         if (isDockerInterface(iface.name)) return@forEach
         Collections.list(iface.inetAddresses).filterIsInstance<Inet4Address>().map { it.hostAddress }.forEach { address ->
-            if (!address.startsWith("127.") && isPrivateIpv4(address) && isUsableHost(address) && !isDockerIp(address) && address !in hosts) {
+            if (isLanIpv4Host(address) && address !in hosts) {
                 hosts.add(address)
             }
         }
@@ -122,7 +118,7 @@ fun resolveAllLanHosts(): List<String> {
 
     runCatching {
         InetAddress.getLocalHost().hostAddress?.let {
-            if (!it.startsWith("127.") && isUsableHost(it) && isPrivateIpv4(it) && !isDockerIp(it) && it !in hosts) {
+            if (isLanIpv4Host(it) && it !in hosts) {
                 hosts.add(it)
             }
         }

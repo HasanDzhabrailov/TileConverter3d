@@ -57,8 +57,17 @@ class TerrainWebServerTest {
         val client = createClient { defaultRequest { header(HttpHeaders.Host, "testserver") } }
         val payload = json.parseToJsonElement(client.get("/api/server-info").bodyAsText()).jsonObject
         val addresses = payload["addresses"]!!.jsonArray
-        assertEquals("lan-primary", addresses[0].jsonObject["id"]!!.jsonPrimitive.content)
-        assertEquals("localhost", addresses[1].jsonObject["id"]!!.jsonPrimitive.content)
+        assertTrue(addresses.any { it.jsonObject["id"]!!.jsonPrimitive.content == "localhost" })
+        addresses.firstOrNull { it.jsonObject["id"]!!.jsonPrimitive.content == "lan-primary" }?.let { lan ->
+            assertEquals("Wi-Fi / LAN", lan.jsonObject["label"]!!.jsonPrimitive.content)
+        }
+    }
+
+    @Test
+    fun lanHostCandidateAcceptsPrivateNetworksWithoutDockerRangeHardcode() {
+        assertTrue(isLanIpv4Host("192.168.1.20"))
+        assertTrue(isLanIpv4Host("172.20.1.20"))
+        assertFalse(isLanIpv4Host("127.0.0.1"))
     }
 
     @Test
