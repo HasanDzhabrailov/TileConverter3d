@@ -11,7 +11,7 @@ kotlin {
 }
 
 repositories {
-    maven(url = "https://repo1.maven.org/maven2/")
+    mavenCentral()
 }
 
 val ktorVersion = "2.3.12"
