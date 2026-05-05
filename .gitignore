@@ -50,6 +50,7 @@ desktop.ini
 
 # Kotlin/JS build outputs
 kotlin/terrain-web-ui/build/frontendDist/
+yarn.lock
 
 # Project-specific generated files
 data/
