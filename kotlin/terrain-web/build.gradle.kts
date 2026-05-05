@@ -59,5 +59,6 @@ tasks.named<JavaExec>("run") {
 }
 
 tasks.named("installDist") {
-    dependsOn(syncFrontendDist)
+    // Note: In Docker, frontend assets are copied from frontend-build stage
+    // For local development, run syncFrontendDist manually before installDist
 }
