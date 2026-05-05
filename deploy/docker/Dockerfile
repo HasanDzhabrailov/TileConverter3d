@@ -5,10 +5,7 @@ WORKDIR /app
 COPY build.gradle.kts settings.gradle.kts ./
 COPY kotlin ./kotlin
 
-# Build frontend first (includes npm install)
-RUN gradle -p kotlin/terrain-web-ui syncFrontendDist --no-daemon
-
-# Build backend
+# Build backend (automatically handles frontend dependencies)
 RUN gradle :terrain-web:installDist --no-daemon
 
 FROM eclipse-temurin:21-jre
