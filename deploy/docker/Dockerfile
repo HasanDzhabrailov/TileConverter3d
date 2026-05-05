@@ -4,7 +4,6 @@ FROM gradle:8.7-jdk21 AS build
 WORKDIR /app
 
 COPY --from=node /usr/local /usr/local
-RUN npm install --global yarn@1.22.17
 
 # Copy all project files
 COPY build.gradle.kts settings.gradle.kts gradle.properties ./
