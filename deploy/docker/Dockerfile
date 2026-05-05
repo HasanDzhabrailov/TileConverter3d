@@ -8,6 +8,7 @@ RUN apt-get update \
 
 # Copy all project files
 COPY build.gradle.kts settings.gradle.kts gradle.properties ./
+COPY .yarnrc ./
 COPY kotlin ./kotlin
 
 # Build (frontend is built automatically as dependency of installDist)
