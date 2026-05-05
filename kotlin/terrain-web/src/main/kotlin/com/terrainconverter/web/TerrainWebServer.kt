@@ -14,6 +14,8 @@ import io.ktor.server.http.content.staticFiles
 import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.forwardedheaders.ForwardedHeaders
+import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 import io.ktor.server.request.host
 import io.ktor.server.request.path
 import io.ktor.server.request.receiveMultipart
@@ -45,6 +47,9 @@ import kotlin.io.path.readText
 
 fun main() {
     val dependencies = AppDependencies()
+    val startupHost = if (dependencies.settings.host == "0.0.0.0") "127.0.0.1" else dependencies.settings.host
+    val startupBaseUrl = publicBaseUrl("http", startupHost, dependencies.settings.port)
+    println("Terrain web server will publish tile URLs as: $startupBaseUrl")
     embeddedServer(Netty, host = dependencies.settings.host, port = dependencies.settings.port) {
         terrainWebModule(dependencies)
     }.start(wait = true)
@@ -64,6 +69,8 @@ fun Application.terrainWebModule(dependencies: AppDependencies = AppDependencies
 
     install(ContentNegotiation) { json(dependencies.json) }
     install(WebSockets)
+    install(ForwardedHeaders)
+    install(XForwardedHeaders)
     install(CORS) {
         anyHost()
         allowMethod(io.ktor.http.HttpMethod.Get)
