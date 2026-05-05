@@ -1,5 +1,6 @@
 FROM gradle:8.7-jdk21 AS frontend-build
 WORKDIR /app
+COPY build.gradle.kts settings.gradle.kts ./
 COPY kotlin/terrain-web-ui ./kotlin/terrain-web-ui
 RUN gradle -p kotlin/terrain-web-ui syncFrontendDist --no-daemon
 
