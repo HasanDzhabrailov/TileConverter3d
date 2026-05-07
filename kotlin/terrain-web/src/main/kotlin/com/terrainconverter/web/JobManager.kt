@@ -1,7 +1,10 @@
 package com.terrainconverter.web
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import java.util.concurrent.CancellationException
 import java.util.concurrent.ConcurrentHashMap
 
 class JobManager(
@@ -11,6 +14,7 @@ class JobManager(
     private val scope: CoroutineScope,
 ) {
     private val jobs = ConcurrentHashMap<String, JobDetail>()
+    private val runningJobs = ConcurrentHashMap<String, Job>()
 
     fun createJob(options: JobOptions, hasBaseMbtiles: Boolean): JobDetail {
         val now = dependencies.now()
@@ -29,7 +33,7 @@ class JobManager(
     }
 
     fun startJob(jobId: String, baseUrl: String) {
-        dependencies.launcher(scope) { runJob(jobId, baseUrl) }
+        runningJobs[jobId] = dependencies.launcher(scope) { runJob(jobId, baseUrl) }
     }
 
     fun listJobs(): List<JobSummary> = jobs.values
@@ -37,6 +41,15 @@ class JobManager(
         .map { JobSummary(it.id, it.status, it.createdAt, it.updatedAt, it.options, it.hasBaseMbtiles, it.artifacts, it.result, it.error) }
 
     fun getJob(jobId: String): JobDetail = jobs[jobId] ?: throw NoSuchElementException(jobId)
+
+    suspend fun deleteJobsByStatus(statuses: Set<JobStatus>): List<JobDetail> {
+        val removed = jobs.values.filter { it.status in statuses }
+        removed.forEach { job ->
+            runningJobs.remove(job.id)?.cancelAndJoin()
+            jobs.remove(job.id)
+        }
+        return removed
+    }
 
     fun appendLog(jobId: String, line: String) {
         val current = getJob(jobId)
@@ -73,10 +86,10 @@ class JobManager(
     }
 
     private suspend fun runJob(jobId: String, baseUrl: String) {
-        updateStatus(jobId, JobStatus.RUNNING)
-        val paths = storage.pathsFor(jobId)
-        val options = getJob(jobId).options
         try {
+            updateStatus(jobId, JobStatus.RUNNING)
+            val paths = storage.pathsFor(jobId)
+            val options = getJob(jobId).options
             val result = dependencies.conversionRunner(
                 ConversionRequest(
                     settings = dependencies.settings,
@@ -88,9 +101,17 @@ class JobManager(
                 )
             )
             completeJob(jobId, result.bounds, result.tileCount, baseUrl)
+        } catch (_: NoSuchElementException) {
+            // The job was removed by cache cleanup while work was still queued or running.
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
-            appendLog(jobId, "ERROR: ${error.message ?: error.javaClass.name}")
-            updateStatus(jobId, JobStatus.FAILED, error.message ?: error.javaClass.name)
+            if (jobs.containsKey(jobId)) {
+                appendLog(jobId, "ERROR: ${error.message ?: error.javaClass.name}")
+                updateStatus(jobId, JobStatus.FAILED, error.message ?: error.javaClass.name)
+            }
+        } finally {
+            runningJobs.remove(jobId)
         }
     }
 }

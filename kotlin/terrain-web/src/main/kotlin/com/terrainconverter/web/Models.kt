@@ -139,6 +139,70 @@ data class MBTilesTileset(
 )
 
 @Serializable
+enum class MBTilesUploadStage {
+    @SerialName("uploading")
+    UPLOADING,
+
+    @SerialName("validating")
+    VALIDATING,
+
+    @SerialName("reading_metadata")
+    READING_METADATA,
+
+    @SerialName("detecting_type")
+    DETECTING_TYPE,
+
+    @SerialName("preparing_server")
+    PREPARING_SERVER,
+
+    @SerialName("ready")
+    READY,
+
+    @SerialName("error")
+    ERROR,
+
+    @SerialName("cancelled")
+    CANCELLED,
+}
+
+@Serializable
+data class MBTilesUploadProgress(
+    val id: String,
+    val stage: MBTilesUploadStage,
+    val filename: String? = null,
+    val error: String? = null,
+    @SerialName("tileset_id")
+    val tilesetId: String? = null,
+)
+
+@Serializable
+data class BaseMapSource(
+    val id: String,
+    val name: String,
+    @SerialName("url_template")
+    val urlTemplate: String,
+    val attribution: String? = null,
+    @SerialName("max_zoom")
+    val maxZoom: Int,
+    @SerialName("is_builtin")
+    val isBuiltin: Boolean,
+    @SerialName("created_at")
+    val createdAt: String? = null,
+    @SerialName("updated_at")
+    val updatedAt: String? = null,
+)
+
+@Serializable
+data class BaseMapSourceRequest(
+    val name: String,
+    @SerialName("url_template")
+    val urlTemplate: String,
+    val attribution: String? = null,
+    @SerialName("max_zoom")
+    val maxZoom: Int,
+)
+
+@Serializable
 data class ServerAddress(
     val id: String,
     val label: String,
@@ -150,6 +214,57 @@ data class ServerAddress(
 
 @Serializable
 data class ServerInfo(val addresses: List<ServerAddress> = emptyList())
+
+@Serializable
+data class StorageStats(
+    @SerialName("total_bytes")
+    val totalBytes: Long,
+    @SerialName("jobs_bytes")
+    val jobsBytes: Long,
+    @SerialName("tilesets_bytes")
+    val tilesetsBytes: Long,
+    @SerialName("database_bytes")
+    val databaseBytes: Long,
+    @SerialName("completed_jobs")
+    val completedJobs: Int,
+    @SerialName("failed_jobs")
+    val failedJobs: Int,
+    @SerialName("running_jobs")
+    val runningJobs: Int,
+    @SerialName("uploaded_tilesets")
+    val uploadedTilesets: Int,
+    @SerialName("custom_sources")
+    val customSources: Int,
+)
+
+@Serializable
+data class CacheClearRequest(
+    @SerialName("completed_jobs")
+    val completedJobs: Boolean = false,
+    @SerialName("failed_jobs")
+    val failedJobs: Boolean = false,
+    @SerialName("running_jobs")
+    val runningJobs: Boolean = false,
+    @SerialName("uploaded_tilesets")
+    val uploadedTilesets: Boolean = false,
+    @SerialName("custom_sources")
+    val customSources: Boolean = false,
+)
+
+@Serializable
+data class CacheClearResult(
+    @SerialName("deleted_completed_jobs")
+    val deletedCompletedJobs: Int = 0,
+    @SerialName("deleted_failed_jobs")
+    val deletedFailedJobs: Int = 0,
+    @SerialName("deleted_running_jobs")
+    val deletedRunningJobs: Int = 0,
+    @SerialName("deleted_uploaded_tilesets")
+    val deletedUploadedTilesets: Int = 0,
+    @SerialName("deleted_custom_sources")
+    val deletedCustomSources: Int = 0,
+    val storage: StorageStats,
+)
 
 @Serializable
 data class LogPayload(val logs: List<String>)

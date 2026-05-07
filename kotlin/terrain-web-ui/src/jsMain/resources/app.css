@@ -97,10 +97,28 @@ code {
   border-color: #38bdf8;
   background: #082f49;
 }
-.preview-base-grid {
+.preview-mode-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.75rem;
+}
+.preview-base-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.compact-option {
+  width: auto;
+  margin-top: 0;
+}
+.badge {
+  align-self: center;
+  padding: 0.4rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #bae6fd;
 }
 .preview-toolbar {
   display: grid;
@@ -136,6 +154,19 @@ code {
   border-radius: 0.5rem;
   padding: 1rem;
   background: #020617;
+}
+.upload-progress {
+  height: 0.6rem;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid #1e293b;
+  background: #020617;
+}
+.upload-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #38bdf8, #22c55e);
+  transition: width 120ms ease-out;
 }
 .logs {
   margin: 0;
@@ -204,8 +235,11 @@ code {
   .layout {
     grid-template-columns: 1fr;
   }
-  .preview-base-grid {
+  .preview-mode-grid {
     grid-template-columns: 1fr;
+  }
+  .compact-option {
+    width: 100%;
   }
   .preview-toolbar {
     grid-template-columns: 1fr;

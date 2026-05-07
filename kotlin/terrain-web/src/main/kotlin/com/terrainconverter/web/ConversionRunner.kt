@@ -3,6 +3,8 @@ package com.terrainconverter.web
 import com.terrainconverter.core.Bounds
 import com.terrainconverter.core.ConversionOptions
 import com.terrainconverter.core.runConversion as runTerrainConversion
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.zip.ZipInputStream
@@ -29,43 +31,48 @@ data class ConversionOutcome(
 )
 
 suspend fun runConversionJob(request: ConversionRequest): ConversionOutcome {
+    val coroutineContext = currentCoroutineContext()
+    val checkedLog: (String) -> Unit = { line ->
+        coroutineContext.ensureActive()
+        request.log(line)
+    }
     val overallStartTime = System.currentTimeMillis()
 
-    val inputPaths = prepareHgtInputs(request.paths, request.verboseLogging, request.log)
+    val inputPaths = prepareHgtInputs(request.paths, request.verboseLogging, checkedLog)
 
     if (request.verboseLogging) {
-        request.log("=".repeat(50))
-        request.log("Starting terrain conversion job: ${request.jobId}")
-        request.log("=".repeat(50))
-        request.log("[INPUT] Prepared ${inputPaths.size} HGT input(s)")
+        checkedLog("=".repeat(50))
+        checkedLog("Starting terrain conversion job: ${request.jobId}")
+        checkedLog("=".repeat(50))
+        checkedLog("[INPUT] Prepared ${inputPaths.size} HGT input(s)")
         inputPaths.forEachIndexed { index, path ->
-            request.log("[INPUT]   ${index + 1}. ${path.name}")
+            checkedLog("[INPUT]   ${index + 1}. ${path.name}")
         }
 
-        request.log("[PARAMS] Conversion settings:")
-        request.log("[PARAMS]   Min Zoom: ${request.options.minzoom}")
-        request.log("[PARAMS]   Max Zoom: ${request.options.maxzoom}")
-        request.log("[PARAMS]   Tile Size: ${request.options.tileSize}px")
-        request.log("[PARAMS]   Scheme: ${request.options.scheme}")
-        request.log("[PARAMS]   Encoding: ${request.options.encoding}")
-        request.log("[PARAMS]   Workers: ${Runtime.getRuntime().availableProcessors() - 1}")
+        checkedLog("[PARAMS] Conversion settings:")
+        checkedLog("[PARAMS]   Min Zoom: ${request.options.minzoom}")
+        checkedLog("[PARAMS]   Max Zoom: ${request.options.maxzoom}")
+        checkedLog("[PARAMS]   Tile Size: ${request.options.tileSize}px")
+        checkedLog("[PARAMS]   Scheme: ${request.options.scheme}")
+        checkedLog("[PARAMS]   Encoding: ${request.options.encoding}")
+        checkedLog("[PARAMS]   Workers: ${Runtime.getRuntime().availableProcessors() - 1}")
 
         if (request.options.bbox != null) {
-            request.log("[PARAMS]   BBOX (manual): west=${request.options.bbox.west}, south=${request.options.bbox.south}, east=${request.options.bbox.east}, north=${request.options.bbox.north}")
+            checkedLog("[PARAMS]   BBOX (manual): west=${request.options.bbox.west}, south=${request.options.bbox.south}, east=${request.options.bbox.east}, north=${request.options.bbox.north}")
         } else {
-            request.log("[PARAMS]   BBOX: auto-detected from input data")
+            checkedLog("[PARAMS]   BBOX: auto-detected from input data")
         }
 
         if (request.paths.baseMbtiles.exists()) {
-            request.log("[PARAMS]   Base MBTiles: ${request.paths.baseMbtiles.fileName}")
+            checkedLog("[PARAMS]   Base MBTiles: ${request.paths.baseMbtiles.fileName}")
         }
 
-        request.log("[OUTPUT] Output paths:")
-        request.log("[OUTPUT]   Tiles: ${request.paths.terrainRoot}")
-        request.log("[OUTPUT]   MBTiles: ${request.paths.terrainMbtiles}")
-        request.log("[OUTPUT]   TileJSON: ${request.paths.tilejson}")
-        request.log("[OUTPUT]   Style: ${request.paths.stylejson}")
-        request.log("[CONVERT] Starting conversion process...")
+        checkedLog("[OUTPUT] Output paths:")
+        checkedLog("[OUTPUT]   Tiles: ${request.paths.terrainRoot}")
+        checkedLog("[OUTPUT]   MBTiles: ${request.paths.terrainMbtiles}")
+        checkedLog("[OUTPUT]   TileJSON: ${request.paths.tilejson}")
+        checkedLog("[OUTPUT]   Style: ${request.paths.stylejson}")
+        checkedLog("[CONVERT] Starting conversion process...")
     }
 
     val conversionStart = System.currentTimeMillis()
@@ -83,13 +90,14 @@ suspend fun runConversionJob(request: ConversionRequest): ConversionOutcome {
             tileSize = request.options.tileSize,
             scheme = request.options.scheme,
             encoding = request.options.encoding,
-            progress = if (request.verboseLogging) request.log else null,
+            progress = if (request.verboseLogging) checkedLog else null,
+            cancellationCheck = { coroutineContext.ensureActive() },
         )
     )
     val conversionTime = System.currentTimeMillis() - conversionStart
 
     if (request.verboseLogging) {
-        request.log("[CONVERT] Conversion completed in ${conversionTime}ms")
+        checkedLog("[CONVERT] Conversion completed in ${conversionTime}ms")
     }
 
     val tilejsonText = request.paths.tilejson.readText()
@@ -107,16 +115,16 @@ suspend fun runConversionJob(request: ConversionRequest): ConversionOutcome {
     val totalTime = System.currentTimeMillis() - overallStartTime
 
     if (request.verboseLogging) {
-        request.log("[DOCS] Generated TileJSON and Style JSON")
-        request.log("=".repeat(50))
-        request.log("[SUMMARY] Conversion completed successfully")
-        request.log("[SUMMARY]   Tiles generated: $actualTileCount")
-        request.log("[SUMMARY]   Bounds: west=${bounds.west}, south=${bounds.south}, east=${bounds.east}, north=${bounds.north}")
-        request.log("[SUMMARY]   Total time: ${totalTime}ms")
+        checkedLog("[DOCS] Generated TileJSON and Style JSON")
+        checkedLog("=".repeat(50))
+        checkedLog("[SUMMARY] Conversion completed successfully")
+        checkedLog("[SUMMARY]   Tiles generated: $actualTileCount")
+        checkedLog("[SUMMARY]   Bounds: west=${bounds.west}, south=${bounds.south}, east=${bounds.east}, north=${bounds.north}")
+        checkedLog("[SUMMARY]   Total time: ${totalTime}ms")
         if (actualTileCount > 0) {
-            request.log("[SUMMARY]   Average: ${totalTime / actualTileCount}ms per tile")
+            checkedLog("[SUMMARY]   Average: ${totalTime / actualTileCount}ms per tile")
         }
-        request.log("=".repeat(50))
+        checkedLog("=".repeat(50))
     }
 
     return ConversionOutcome(bounds = bounds, tileCount = actualTileCount)

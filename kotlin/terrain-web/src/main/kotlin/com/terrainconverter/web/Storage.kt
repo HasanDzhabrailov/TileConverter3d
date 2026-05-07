@@ -5,9 +5,12 @@ import io.ktor.utils.io.core.readAvailable
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteIfExists
+import kotlin.io.path.deleteRecursively
 import kotlin.io.path.exists
+import kotlin.io.path.isRegularFile
 
 data class JobPaths(
     val root: Path,
@@ -29,8 +32,10 @@ data class TilesetPaths(
 class Storage(val root: Path) {
     private val jobsRoot = root.resolve("jobs")
     private val tilesetsRoot = root.resolve("tilesets")
+    val databasePath: Path = root.resolve("app.sqlite")
 
     init {
+        root.createDirectories()
         jobsRoot.createDirectories()
         tilesetsRoot.createDirectories()
     }
@@ -61,6 +66,26 @@ class Storage(val root: Path) {
         return TilesetPaths(root = root, mbtiles = root.resolve("tiles.mbtiles"))
     }
 
+    fun jobRoot(jobId: String): Path = jobsRoot.resolve(jobId)
+
+    fun tilesetRoot(tilesetId: String): Path = tilesetsRoot.resolve(tilesetId)
+
+    fun storageBytes(): Long = directoryBytes(root)
+
+    fun jobsBytes(): Long = directoryBytes(jobsRoot)
+
+    fun tilesetsBytes(): Long = directoryBytes(tilesetsRoot)
+
+    fun databaseBytes(): Long = if (databasePath.isRegularFile()) Files.size(databasePath) else 0L
+
+    fun deleteJob(jobId: String) {
+        deleteRoot(jobRoot(jobId))
+    }
+
+    fun deleteTileset(tilesetId: String) {
+        deleteRoot(tilesetRoot(tilesetId))
+    }
+
     suspend fun saveUpload(part: PartData.FileItem, destination: Path) {
         destination.parent?.createDirectories()
         part.provider().use { input ->
@@ -89,6 +114,18 @@ class Storage(val root: Path) {
                 .forEach { if (it != paths.inputs) it.deleteIfExists() }
         }
         paths.inputs.createDirectories()
+    }
+
+    private fun directoryBytes(path: Path): Long {
+        if (!path.exists()) return 0L
+        Files.walk(path).use { stream ->
+            return stream.filter { it.isRegularFile() }.mapToLong { Files.size(it) }.sum()
+        }
+    }
+
+    @OptIn(ExperimentalPathApi::class)
+    private fun deleteRoot(path: Path) {
+        if (path.exists()) path.deleteRecursively()
     }
 }
 

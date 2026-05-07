@@ -10,5 +10,19 @@
   <body>
     <div id="root"></div>
     <script src="/terrain-web-ui.js"></script>
+    <script>
+      // Регистрация Service Worker для кэширования тайлов
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js')
+            .then(function(registration) {
+              console.log('[App] ServiceWorker зарегистрирован:', registration.scope);
+            })
+            .catch(function(error) {
+              console.log('[App] Ошибка регистрации ServiceWorker:', error);
+            });
+        });
+      }
+    </script>
   </body>
   </html>

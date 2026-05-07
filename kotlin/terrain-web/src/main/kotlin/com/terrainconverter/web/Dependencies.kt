@@ -1,6 +1,7 @@
 package com.terrainconverter.web
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.nio.file.Path
@@ -38,7 +39,7 @@ data class AppDependencies(
     val jobIdProvider: () -> String = { UUID.randomUUID().toString().replace("-", "") },
     val tilesetIdProvider: () -> String = { UUID.randomUUID().toString().replace("-", "") },
     val conversionRunner: suspend (ConversionRequest) -> ConversionOutcome = ::runConversionJob,
-    val launcher: (CoroutineScope, suspend () -> Unit) -> Unit = { scope, block -> scope.launch { block() } },
+    val launcher: (CoroutineScope, suspend () -> Unit) -> Job = { scope, block -> scope.launch { block() } },
 )
 
 data class AppState(
@@ -47,4 +48,7 @@ data class AppState(
     val websocketManager: WebSocketManager,
     val jobs: JobManager,
     val tilesets: MutableMap<String, MBTilesTileset>,
+    val mbtilesUploadProgress: MutableMap<String, MBTilesUploadProgress>,
+    val mbtilesUploadProgressUpdatedAt: MutableMap<String, Long>,
+    val baseSources: BaseMapSourceRepository,
 )

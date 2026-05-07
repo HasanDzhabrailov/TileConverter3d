@@ -11,10 +11,9 @@ import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.await
 
-enum class PreviewBase {
-    OSM,
-    UPLOADED,
-    NONE,
+enum class PreviewMode {
+    TWO_D,
+    THREE_D,
 }
 
 class AppState {
@@ -22,9 +21,15 @@ class AppState {
     var jobs by mutableStateOf<List<Job>>(emptyList())
     var serverAddresses by mutableStateOf<List<ServerAddress>>(emptyList())
     var tilesets by mutableStateOf<List<MbtilesTileset>>(emptyList())
+    var baseSources by mutableStateOf<List<BaseMapSource>>(emptyList())
+    var storageStats by mutableStateOf<StorageStats?>(null)
     var selectedJobId by mutableStateOf<String?>(null)
     var selectedTilesetId by mutableStateOf<String?>(null)
-    var previewBase by mutableStateOf(PreviewBase.OSM)
+    var selectedBaseSourceId by mutableStateOf("openstreetmap")
+    var previewMode by mutableStateOf(PreviewMode.TWO_D)
+    var twoDPreviewTilesetId by mutableStateOf<String?>(null)
+    var terrainPreviewSource by mutableStateOf<TerrainPreviewSource?>(null)
+    var previewNotice by mutableStateOf<String?>(null)
     var logs by mutableStateOf<List<String>>(emptyList())
     var refreshError by mutableStateOf<String?>(null)
     var jobDetailsError by mutableStateOf<String?>(null)
@@ -37,7 +42,16 @@ class AppState {
     val selectedTileset: MbtilesTileset?
         get() = tilesets.firstOrNull { it.id == selectedTilesetId }
 
+    val twoDPreviewTileset: MbtilesTileset?
+        get() = tilesets.firstOrNull { it.id == twoDPreviewTilesetId }
+
+    val selectedBaseSource: BaseMapSource
+        get() = baseSources.firstOrNull { it.id == selectedBaseSourceId }
+            ?: baseSources.firstOrNull { it.id == "openstreetmap" }
+            ?: fallbackOpenStreetMapSource
+
     fun applyBootstrap(data: BootstrapData) {
+        val previousStatuses = jobs.associate { it.id to it.status }
         if (jobs != data.jobs) {
             jobs = data.jobs
         }
@@ -47,12 +61,27 @@ class AppState {
         if (serverAddresses != data.serverInfo.addresses) {
             serverAddresses = data.serverInfo.addresses
         }
+        if (baseSources != data.baseSources) {
+            baseSources = data.baseSources
+        }
+        storageStats = data.storageStats
+        if (baseSources.none { it.id == selectedBaseSourceId }) {
+            selectedBaseSourceId = baseSources.firstOrNull { it.id == "openstreetmap" }?.id ?: "openstreetmap"
+        }
+        if (selectedJobId != null && data.jobs.none { it.id == selectedJobId }) selectedJobId = data.jobs.firstOrNull()?.id
+        if (selectedTilesetId != null && data.tilesets.none { it.id == selectedTilesetId }) selectedTilesetId = null
+        if (twoDPreviewTilesetId != null && data.tilesets.none { it.id == twoDPreviewTilesetId }) twoDPreviewTilesetId = null
+        terrainPreviewSource = when (val source = terrainPreviewSource) {
+            is TerrainPreviewSource.Job -> source.takeIf { data.jobs.any { it.id == source.jobId } }
+            is TerrainPreviewSource.MbtilesDem -> source.takeIf { data.tilesets.any { it.id == source.tilesetId } }
+            null -> null
+        }
         if (selectedJobId == null && data.jobs.isNotEmpty()) {
             selectedJobId = data.jobs.first().id
         }
-        if (selectedTilesetId == null && data.tilesets.isNotEmpty()) {
-            selectedTilesetId = data.tilesets.first().id
-        }
+        data.jobs.firstOrNull { job ->
+            job.status == JobStatus.COMPLETED && previousStatuses[job.id]?.let { it != JobStatus.COMPLETED } == true
+        }?.let(::selectCompletedJobForPreview)
     }
 
     suspend fun detectWorkingAddress() {
@@ -66,7 +95,6 @@ class AppState {
                 if (index >= 0) index else mobileAddressOrder.size
             }
         
-        // Try each address to find working one
         for (address in lanAddresses) {
             try {
                 val response = kotlinx.browser.window.fetch("${address.baseUrl}/api/health").await()
@@ -75,22 +103,66 @@ class AppState {
                     return
                 }
             } catch (_: Throwable) {
-                // Address not reachable, try next
             }
         }
         
-        // Fallback to first LAN address if none responded
         activeMobileAddress = lanAddresses.firstOrNull()
     }
 
     fun mergeJob(job: Job) {
+        val previousStatus = jobs.firstOrNull { it.id == job.id }?.status
         jobs = listOf(job) + jobs.filterNot { it.id == job.id }
+        if (job.status == JobStatus.COMPLETED && previousStatus != JobStatus.COMPLETED) {
+            selectCompletedJobForPreview(job)
+        }
     }
 
     fun mergeTileset(tileset: MbtilesTileset) {
         tilesets = listOf(tileset) + tilesets.filterNot { it.id == tileset.id }
     }
+
+    fun selectJob(job: Job) {
+        selectedJobId = job.id
+        if (job.status == JobStatus.COMPLETED) {
+            twoDPreviewTilesetId = null
+            terrainPreviewSource = TerrainPreviewSource.Job(job.id)
+            if (previewMode == PreviewMode.THREE_D) {
+                previewNotice = null
+            }
+        }
+    }
+
+    fun openTilesetIn2D(tileset: MbtilesTileset) {
+        selectedTilesetId = tileset.id
+        twoDPreviewTilesetId = tileset.id
+        previewMode = PreviewMode.TWO_D
+        previewNotice = null
+    }
+
+    fun openTilesetIn3D(tileset: MbtilesTileset) {
+        selectedTilesetId = tileset.id
+        terrainPreviewSource = TerrainPreviewSource.MbtilesDem(tileset.id)
+        previewMode = PreviewMode.THREE_D
+        previewNotice = "Рельеф DEM выбран. 3D просмотр включён."
+    }
+
+    private fun selectCompletedJobForPreview(job: Job) {
+        selectedJobId = job.id
+        twoDPreviewTilesetId = null
+        terrainPreviewSource = TerrainPreviewSource.Job(job.id)
+        previewMode = PreviewMode.THREE_D
+        previewNotice = "Рельеф готов. 3D просмотр включён."
+    }
 }
+
+val fallbackOpenStreetMapSource = BaseMapSource(
+    id = "openstreetmap",
+    name = "OpenStreetMap",
+    urlTemplate = "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution = "&copy; OpenStreetMap contributors",
+    maxZoom = 19,
+    isBuiltin = true,
+)
 
 @Composable
 fun rememberAppState(): AppState {
@@ -103,7 +175,6 @@ fun rememberAppState(): AppState {
                     state.applyBootstrap(it)
                     state.isLoading = false
                     state.refreshError = null
-                    // Auto-detect working address after loading
                     state.detectWorkingAddress()
                 }
                 .onFailure {

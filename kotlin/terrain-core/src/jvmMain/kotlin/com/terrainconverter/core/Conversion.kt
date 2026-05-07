@@ -24,6 +24,7 @@ data class ConversionOptions(
     val name: String = "terrain-dem",
     val workers: Int = DEFAULT_WORKERS,
     val progress: ((String) -> Unit)? = null,
+    val cancellationCheck: () -> Unit = {},
 )
 
 data class ConversionResult(
@@ -50,6 +51,7 @@ private fun renderTiles(
     workers: Int,
     totalTiles: Int,
     progress: ((String) -> Unit)?,
+    cancellationCheck: () -> Unit,
     consume: (Int, Int, Int, ByteArray) -> Unit,
 ) {
     val normalizedWorkers = workers.coerceAtLeast(1)
@@ -66,6 +68,7 @@ private fun renderTiles(
     val tiles = generateXyzTiles(bounds, minZoom, maxZoom).iterator()
     if (normalizedWorkers <= 1) {
         while (tiles.hasNext()) {
+            cancellationCheck()
             val (zoom, x, y) = tiles.next()
             consume(zoom, x, y, generateTilePng(collection, zoom, x, y, tileSize))
             onTileRendered()
@@ -80,6 +83,7 @@ private fun renderTiles(
         val maxPending = normalizedWorkers * 4
 
         fun submitNext(): Boolean {
+            cancellationCheck()
             if (!tiles.hasNext()) {
                 return false
             }
@@ -95,7 +99,9 @@ private fun renderTiles(
         }
 
         while (pending > 0) {
+            cancellationCheck()
             val (tile, pngData) = completion.take().get()
+            cancellationCheck()
             pending -= 1
             consume(tile.first, tile.second, tile.third, pngData)
             onTileRendered()
@@ -131,7 +137,8 @@ fun runConversion(options: ConversionOptions): ConversionResult {
                 "maxzoom" to options.maxZoom.toString(),
             )
         )
-        renderTiles(collection, bounds, options.minZoom, options.maxZoom, tileSize, options.workers, tileCount, options.progress) { zoom, x, y, pngData ->
+        renderTiles(collection, bounds, options.minZoom, options.maxZoom, tileSize, options.workers, tileCount, options.progress, options.cancellationCheck) { zoom, x, y, pngData ->
+            options.cancellationCheck()
             writer.writeTile(zoom, x, y, pngData)
             val tileDir = options.tileRoot.resolve(zoom.toString()).resolve(x.toString())
             if (currentTileDir != tileDir) {

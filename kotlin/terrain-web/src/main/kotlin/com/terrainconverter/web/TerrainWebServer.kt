@@ -6,6 +6,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -18,6 +19,7 @@ import io.ktor.server.plugins.forwardedheaders.ForwardedHeaders
 import io.ktor.server.plugins.forwardedheaders.XForwardedHeaders
 import io.ktor.server.request.host
 import io.ktor.server.request.path
+import io.ktor.server.request.receive
 import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
@@ -25,6 +27,8 @@ import io.ktor.server.response.respondFile
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import io.ktor.server.routing.put
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.webSocket
@@ -34,8 +38,10 @@ import io.ktor.websocket.close
 import io.ktor.websocket.send
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import java.nio.file.Files
@@ -44,6 +50,8 @@ import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.deleteRecursively
 import kotlin.io.path.exists
 import kotlin.io.path.readText
+
+private const val MBTILES_UPLOAD_PROGRESS_TTL_MILLIS = 30L * 60L * 1000L
 
 fun main() {
     val dependencies = AppDependencies()
@@ -58,14 +66,27 @@ fun main() {
 fun Application.terrainWebModule(dependencies: AppDependencies = AppDependencies()) {
     val storage = Storage(dependencies.settings.storageRoot)
     val websocketManager = WebSocketManager(dependencies.json)
-    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    val scopeJob = SupervisorJob()
+    val scope = CoroutineScope(scopeJob + Dispatchers.Default)
+    environment.monitor.subscribe(ApplicationStopped) {
+        scope.cancel()
+    }
     val state = AppState(
         dependencies = dependencies,
         storage = storage,
         websocketManager = websocketManager,
         jobs = JobManager(dependencies, storage, websocketManager, scope),
         tilesets = ConcurrentHashMap(),
+        mbtilesUploadProgress = ConcurrentHashMap(),
+        mbtilesUploadProgressUpdatedAt = ConcurrentHashMap(),
+        baseSources = BaseMapSourceRepository(storage.databasePath, dependencies.now),
     )
+    scope.launch {
+        while (true) {
+            delay(MBTILES_UPLOAD_PROGRESS_TTL_MILLIS)
+            cleanupMbtilesUploadProgress(state)
+        }
+    }
 
     install(ContentNegotiation) { json(dependencies.json) }
     install(WebSockets)
@@ -75,6 +96,8 @@ fun Application.terrainWebModule(dependencies: AppDependencies = AppDependencies
         anyHost()
         allowMethod(io.ktor.http.HttpMethod.Get)
         allowMethod(io.ktor.http.HttpMethod.Post)
+        allowMethod(io.ktor.http.HttpMethod.Put)
+        allowMethod(io.ktor.http.HttpMethod.Delete)
         allowMethod(io.ktor.http.HttpMethod.Options)
         allowHeader(HttpHeaders.ContentType)
     }
@@ -87,6 +110,45 @@ fun Application.terrainWebModule(dependencies: AppDependencies = AppDependencies
 
         get("/api/server-info") {
             call.respond(buildServerInfo(call.request.host(), requestBaseUrl(call), requestScheme(call), requestPort(call)))
+        }
+
+        get("/api/system/storage") {
+            call.respond(buildStorageStats(state))
+        }
+
+        delete("/api/system/cache") {
+            val request = runCatching { call.receive<CacheClearRequest>() }.getOrElse {
+                return@delete call.respond(HttpStatusCode.BadRequest, ErrorPayload("Invalid cache clear request"))
+            }
+            call.respond(clearSelectedCache(state, request))
+        }
+
+        get("/api/base-sources") {
+            call.respond(state.baseSources.list())
+        }
+
+        post("/api/base-sources") {
+            val source = runCatching { state.baseSources.create(call.receive()) }.getOrElse {
+                return@post call.respondBaseSourceError(it)
+            }
+            call.respond(HttpStatusCode.Created, source)
+        }
+
+        put("/api/base-sources/{sourceId}") {
+            val sourceId = call.parameters["sourceId"]!!
+            val source = runCatching { state.baseSources.update(sourceId, call.receive()) }.getOrElse {
+                return@put call.respondBaseSourceError(it)
+            } ?: return@put call.respond(HttpStatusCode.NotFound, ErrorPayload("Base source not found"))
+            call.respond(source)
+        }
+
+        delete("/api/base-sources/{sourceId}") {
+            val sourceId = call.parameters["sourceId"]!!
+            val deleted = runCatching { state.baseSources.delete(sourceId) }.getOrElse {
+                return@delete call.respondBaseSourceError(it)
+            }
+            if (!deleted) return@delete call.respond(HttpStatusCode.NotFound, ErrorPayload("Base source not found"))
+            call.respond(HttpStatusCode.NoContent)
         }
 
         // Job API
@@ -245,9 +307,31 @@ fun Application.terrainWebModule(dependencies: AppDependencies = AppDependencies
         }
 
         get("/api/jobs/{jobId}/style") {
-            val file = state.storage.pathsFor(call.parameters["jobId"]!!).stylejson
-            if (!file.exists()) return@get call.respond(HttpStatusCode.NotFound, ErrorPayload("Style not found"))
-            call.respondText(file.readText(), ContentType.Application.Json)
+            val jobId = call.parameters["jobId"]!!
+            val job = runCatching { state.jobs.getJob(jobId) }.getOrElse {
+                return@get call.respond(HttpStatusCode.NotFound, ErrorPayload("Job not found"))
+            }
+            if (job.status != JobStatus.COMPLETED) {
+                val file = state.storage.pathsFor(jobId).stylejson
+                if (!file.exists()) return@get call.respond(HttpStatusCode.NotFound, ErrorPayload("Style not found"))
+                return@get call.respondText(file.readText(), ContentType.Application.Json)
+            }
+            val baseSource = runCatching { resolveStyleBaseSource(state.baseSources, call.request.queryParameters["base"]) }.getOrElse {
+                return@get call.respondUnknownBaseSource()
+            }
+            call.respondText(renderPrettyJson(buildDynamicJobStyle(job, baseSource)), ContentType.Application.Json)
+        }
+
+        get("/api/jobs/{jobId}/style-mobile") {
+            val job = runCatching { state.jobs.getJob(call.parameters["jobId"]!!) }.getOrElse {
+                return@get call.respond(HttpStatusCode.NotFound, ErrorPayload("Job not found"))
+            }
+            if (job.status != JobStatus.COMPLETED) return@get call.respond(HttpStatusCode.NotFound, ErrorPayload("Style not found"))
+            val baseSource = runCatching { resolveStyleBaseSource(state.baseSources, call.request.queryParameters["base"]) }.getOrElse {
+                return@get call.respondUnknownBaseSource()
+            }
+            val baseUrl = publicBaseUrl(requestScheme(call), call.request.host(), requestPort(call))
+            call.respondText(renderPrettyJson(buildDynamicJobStyle(job, baseSource, baseUrl)), ContentType.Application.Json)
         }
 
         // MBTiles API
@@ -261,23 +345,51 @@ fun Application.terrainWebModule(dependencies: AppDependencies = AppDependencies
             }
         }
 
+        get("/api/mbtiles/uploads/{uploadId}/progress") {
+            cleanupMbtilesUploadProgress(state)
+            val uploadId = call.parameters["uploadId"]!!
+            val progress = state.mbtilesUploadProgress[uploadId]
+                ?: return@get call.respond(HttpStatusCode.NotFound, ErrorPayload("MBTiles upload progress not found"))
+            call.respond(progress)
+        }
+
         post("/api/mbtiles") {
             val tempRoot = Files.createTempDirectory(state.storage.root, "mbtiles-upload-")
+            var uploadId: String? = call.request.queryParameters["upload_id"]?.takeIf { it.isNotBlank() }
+            fun updateProgress(stage: MBTilesUploadStage, filename: String? = null, error: String? = null, tilesetId: String? = null) {
+                cleanupMbtilesUploadProgress(state)
+                val id = uploadId ?: return
+                state.mbtilesUploadProgress[id] = MBTilesUploadProgress(
+                    id = id,
+                    stage = stage,
+                    filename = filename,
+                    error = error,
+                    tilesetId = tilesetId,
+                )
+                state.mbtilesUploadProgressUpdatedAt[id] = System.currentTimeMillis()
+            }
             try {
                 val parsed = parseMbtilesMultipart(call.receiveMultipart(), tempRoot)
+                uploadId = uploadId ?: parsed.form["upload_id"]?.takeIf { it.isNotBlank() }
                 val sourceType = parsed.form["source_type"] ?: "auto"
+                updateProgress(MBTilesUploadStage.VALIDATING, parsed.file?.name)
                 if (parsed.file == null || !parsed.file.name.lowercase().endsWith(".mbtiles")) {
+                    updateProgress(MBTilesUploadStage.ERROR, parsed.file?.name, "Upload a .mbtiles file")
                     return@post call.respond(HttpStatusCode.UnprocessableEntity, ErrorPayload("Upload a .mbtiles file"))
                 }
                 if (sourceType !in setOf("auto", "raster", "raster-dem")) {
+                    updateProgress(MBTilesUploadStage.ERROR, parsed.file.name, "source_type must be auto, raster, or raster-dem")
                     return@post call.respond(HttpStatusCode.UnprocessableEntity, ErrorPayload("source_type must be auto, raster, or raster-dem"))
                 }
                 val tilesetId = dependencies.tilesetIdProvider()
                 val paths = state.storage.tilesetPathsFor(tilesetId)
                 state.storage.moveFile(parsed.file.path, paths.mbtiles)
                 val server = MBTilesServer(paths.mbtiles)
+                updateProgress(MBTilesUploadStage.READING_METADATA, parsed.file.name)
                 val metadata = server.getMetadata()
+                updateProgress(MBTilesUploadStage.DETECTING_TYPE, parsed.file.name)
                 val resolvedSourceType = if (sourceType == "auto") guessMbtilesSourceType(parsed.file.name, metadata) else sourceType
+                updateProgress(MBTilesUploadStage.PREPARING_SERVER, parsed.file.name)
                 val tileset = buildMbtilesTilesetPayload(
                     scheme = requestScheme(call),
                     requestHost = call.request.host(),
@@ -289,9 +401,11 @@ fun Application.terrainWebModule(dependencies: AppDependencies = AppDependencies
                     sourceType = resolvedSourceType,
                 )
                 state.tilesets[tilesetId] = tileset
+                updateProgress(MBTilesUploadStage.READY, parsed.file.name, tilesetId = tilesetId)
                 call.respond(tileset)
             } catch (e: Exception) {
                 e.printStackTrace()
+                updateProgress(MBTilesUploadStage.ERROR, error = "Upload failed: ${e.message}")
                 call.respond(HttpStatusCode.InternalServerError, ErrorPayload("Upload failed: ${e.message}"))
             } finally {
                 cleanupTempDir(tempRoot)
@@ -324,14 +438,20 @@ fun Application.terrainWebModule(dependencies: AppDependencies = AppDependencies
             val tileset = state.tilesets[call.parameters["tilesetId"]!!]
                 ?: return@get call.respond(HttpStatusCode.NotFound, ErrorPayload("MBTiles tileset not found"))
             val baseUrl = publicBaseUrl(requestScheme(call), call.request.host(), requestPort(call))
-            call.respondText(renderPrettyJson(buildMbtilesStyle(tileset.withPublicBaseUrl(baseUrl))), ContentType.Application.Json)
+            val baseSource = runCatching { resolveStyleBaseSource(state.baseSources, call.request.queryParameters["base"]) }.getOrElse {
+                return@get call.respondUnknownBaseSource()
+            }
+            call.respondText(renderPrettyJson(buildDynamicMbtilesStyle(tileset, baseSource, baseUrl)), ContentType.Application.Json)
         }
 
         get("/api/mbtiles/{tilesetId}/style-mobile") {
             val tileset = state.tilesets[call.parameters["tilesetId"]!!]
                 ?: return@get call.respond(HttpStatusCode.NotFound, ErrorPayload("MBTiles tileset not found"))
             val baseUrl = publicBaseUrl(requestScheme(call), call.request.host(), requestPort(call))
-            call.respondText(renderPrettyJson(buildMbtilesMobileStyle(tileset.withPublicBaseUrl(baseUrl))), ContentType.Application.Json)
+            val baseSource = runCatching { resolveStyleBaseSource(state.baseSources, call.request.queryParameters["base"]) }.getOrElse {
+                return@get call.respondUnknownBaseSource()
+            }
+            call.respondText(renderPrettyJson(buildDynamicMbtilesStyle(tileset, baseSource, baseUrl)), ContentType.Application.Json)
         }
 
         get("/api/mbtiles/{tilesetId}/{z}/{x}/{y}.{ext}") {
@@ -362,6 +482,91 @@ fun Application.terrainWebModule(dependencies: AppDependencies = AppDependencies
 @OptIn(ExperimentalPathApi::class)
 private fun cleanupTempDir(path: java.nio.file.Path) {
     runCatching { path.deleteRecursively() }
+}
+
+internal fun cleanupMbtilesUploadProgress(state: AppState, nowMillis: Long = System.currentTimeMillis()) {
+    state.mbtilesUploadProgressUpdatedAt.entries
+        .filter { (_, updatedAt) -> nowMillis - updatedAt > MBTILES_UPLOAD_PROGRESS_TTL_MILLIS }
+        .map { it.key }
+        .forEach { uploadId ->
+            state.mbtilesUploadProgress.remove(uploadId)
+            state.mbtilesUploadProgressUpdatedAt.remove(uploadId)
+        }
+}
+
+private fun buildStorageStats(state: AppState): StorageStats {
+    val jobs = state.jobs.listJobs()
+    return StorageStats(
+        totalBytes = state.storage.storageBytes(),
+        jobsBytes = state.storage.jobsBytes(),
+        tilesetsBytes = state.storage.tilesetsBytes(),
+        databaseBytes = state.storage.databaseBytes(),
+        completedJobs = jobs.count { it.status == JobStatus.COMPLETED },
+        failedJobs = jobs.count { it.status == JobStatus.FAILED },
+        runningJobs = jobs.count { it.status == JobStatus.PENDING || it.status == JobStatus.RUNNING },
+        uploadedTilesets = state.tilesets.size,
+        customSources = state.baseSources.list().count { !it.isBuiltin },
+    )
+}
+
+private suspend fun clearSelectedCache(state: AppState, request: CacheClearRequest): CacheClearResult {
+    var deletedCompletedJobs = 0
+    var deletedFailedJobs = 0
+    var deletedRunningJobs = 0
+    if (request.completedJobs) {
+        val removed = state.jobs.deleteJobsByStatus(setOf(JobStatus.COMPLETED))
+        removed.forEach { state.storage.deleteJob(it.id) }
+        deletedCompletedJobs = removed.size
+    }
+    if (request.failedJobs) {
+        val removed = state.jobs.deleteJobsByStatus(setOf(JobStatus.FAILED))
+        removed.forEach { state.storage.deleteJob(it.id) }
+        deletedFailedJobs = removed.size
+    }
+    if (request.runningJobs) {
+        val removed = state.jobs.deleteJobsByStatus(setOf(JobStatus.PENDING, JobStatus.RUNNING))
+        removed.forEach { state.storage.deleteJob(it.id) }
+        deletedRunningJobs = removed.size
+    }
+    val deletedUploadedTilesets = if (request.uploadedTilesets) {
+        val tilesetIds = state.tilesets.keys.toList()
+        tilesetIds.forEach { tilesetId ->
+            state.tilesets.remove(tilesetId)
+            state.storage.deleteTileset(tilesetId)
+        }
+        state.mbtilesUploadProgress.entries
+            .filter { (_, progress) -> progress.tilesetId in tilesetIds }
+            .map { it.key }
+            .forEach { uploadId ->
+                state.mbtilesUploadProgress.remove(uploadId)
+                state.mbtilesUploadProgressUpdatedAt.remove(uploadId)
+            }
+        tilesetIds.size
+    } else {
+        0
+    }
+    val deletedCustomSources = if (request.customSources) state.baseSources.deleteCustomSources() else 0
+    return CacheClearResult(
+        deletedCompletedJobs = deletedCompletedJobs,
+        deletedFailedJobs = deletedFailedJobs,
+        deletedRunningJobs = deletedRunningJobs,
+        deletedUploadedTilesets = deletedUploadedTilesets,
+        deletedCustomSources = deletedCustomSources,
+        storage = buildStorageStats(state),
+    )
+}
+
+private suspend fun io.ktor.server.application.ApplicationCall.respondBaseSourceError(error: Throwable) {
+    when (error) {
+        is BaseMapSourceValidationException -> respond(HttpStatusCode.UnprocessableEntity, ErrorPayload(error.message ?: "Invalid base source"))
+        is BuiltinBaseMapSourceException -> respond(HttpStatusCode.Conflict, ErrorPayload(error.message ?: "Builtin base source cannot be changed"))
+        is io.ktor.server.plugins.BadRequestException -> respond(HttpStatusCode.BadRequest, ErrorPayload("Invalid base source request"))
+        else -> respond(HttpStatusCode.InternalServerError, ErrorPayload("Base source request failed: ${error.message}"))
+    }
+}
+
+private suspend fun io.ktor.server.application.ApplicationCall.respondUnknownBaseSource() {
+    respond(HttpStatusCode.NotFound, ErrorPayload("Источник подложки не найден"))
 }
 
 private suspend fun serveMbtilesTile(

@@ -11,6 +11,17 @@ Use one file per review command:
 - `kotlin-terrain-backend-review.md`
 - `project-docs-review.md`
 
+Terrain UI/UX redesign review outputs:
+
+- `terrain-ui-redesign-plan-review.md`
+- `base-sources-backend-review.md`
+- `dynamic-map-styles-review.md`
+- `preview-2d-3d-ux-review.md`
+- `mbtiles-upload-progress-review.md`
+- `cache-management-review.md`
+- `russian-ui-polish-review.md`
+- `terrain-ui-redesign-final-review.md`
+
 ## Suggested Format
 
 ```md

@@ -1,19 +1,7 @@
 {
   "version": 8,
-  "name": "Sample Tileset (mobile)",
+  "name": "Sample Tileset",
   "sources": {
-    "osm-base": {
-      "type": "raster",
-      "tiles": [
-        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      ],
-      "tileSize": 256,
-      "minzoom": 0,
-      "maxzoom": 19,
-      "attribution": "OpenStreetMap contributors"
-    },
     "tileset": {
       "type": "raster",
       "tiles": [
@@ -27,14 +15,25 @@
         21.0
       ],
       "minzoom": 4,
-      "maxzoom": 12
+      "maxzoom": 12,
+      "attribution": "Sample attribution"
+    },
+    "base-map": {
+      "type": "raster",
+      "tiles": [
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256,
+      "minzoom": 0,
+      "maxzoom": 19,
+      "attribution": "© OpenStreetMap contributors"
     }
   },
   "layers": [
     {
-      "id": "osm-base-layer",
+      "id": "base-map",
       "type": "raster",
-      "source": "osm-base"
+      "source": "base-map"
     },
     {
       "id": "tileset-raster",

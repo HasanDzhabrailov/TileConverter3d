@@ -1,19 +1,7 @@
 {
   "version": 8,
-  "name": "Terrain RGB Demo (mobile)",
+  "name": "Terrain RGB Demo",
   "sources": {
-    "osm-base": {
-      "type": "raster",
-      "tiles": [
-        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      ],
-      "tileSize": 256,
-      "minzoom": 0,
-      "maxzoom": 19,
-      "attribution": "OpenStreetMap contributors"
-    },
     "tileset": {
       "type": "raster-dem",
       "tiles": [
@@ -28,14 +16,26 @@
       ],
       "minzoom": 6,
       "maxzoom": 10,
+      "attribution": "Terrain attribution",
+      "scheme": "xyz",
       "encoding": "mapbox"
+    },
+    "base-map": {
+      "type": "raster",
+      "tiles": [
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256,
+      "minzoom": 0,
+      "maxzoom": 19,
+      "attribution": "© OpenStreetMap contributors"
     }
   },
   "layers": [
     {
-      "id": "osm-base-layer",
+      "id": "base-map",
       "type": "raster",
-      "source": "osm-base"
+      "source": "base-map"
     },
     {
       "id": "terrain-hillshade",
@@ -49,6 +49,11 @@
       }
     }
   ],
+  "terrain": {
+    "source": "tileset",
+    "exaggeration": 1.0
+  },
+  "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
   "center": [
     10.5,
     20.5

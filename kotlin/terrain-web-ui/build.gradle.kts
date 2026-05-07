@@ -47,14 +47,19 @@ repositories {
 val productionAssetsDir = layout.buildDirectory.dir("dist/js/productionExecutable")
 val frontendDistDir = layout.buildDirectory.dir("frontendDist")
 val mapLibreCssDir = layout.buildDirectory.dir("js/node_modules/maplibre-gl/dist")
+val resourcesDir = layout.projectDirectory.dir("src/jsMain/resources")
 
 tasks.register<Sync>("syncFrontendDist") {
     group = "distribution"
     description = "Copies Kotlin web UI production assets into build/frontendDist"
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     dependsOn(tasks.named("jsBrowserDistribution"))
     from(productionAssetsDir)
     from(mapLibreCssDir) {
         include("maplibre-gl.css")
+    }
+    from(resourcesDir) {
+        include("sw.js")
     }
     into(frontendDistDir)
 }

@@ -8,9 +8,24 @@
         "http://testserver/api/mbtiles/tileset-fixed-missing/{z}/{x}/{y}.png"
       ],
       "tileSize": 256
+    },
+    "base-map": {
+      "type": "raster",
+      "tiles": [
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256,
+      "minzoom": 0,
+      "maxzoom": 19,
+      "attribution": "© OpenStreetMap contributors"
     }
   },
   "layers": [
+    {
+      "id": "base-map",
+      "type": "raster",
+      "source": "base-map"
+    },
     {
       "id": "tileset-raster",
       "type": "raster",
